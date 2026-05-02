@@ -30,15 +30,71 @@ Workflow-state names default to a sensible 10-step lifecycle (Ready for Dev → 
 
 ## YouTrack project setup
 
-The CLI reads three YouTrack custom fields. Make sure your project has them configured before pointing the package at it.
+The CLI reads YouTrack custom fields by exact name. Fields fall into three tiers — only tier 1 is mandatory for the basic commands to work.
+
+### Tier 1 — required
+
+The CLI cannot do useful work without these. They are stock YouTrack defaults — every project ships with them.
 
 | What we call it | YouTrack custom field | Type | Used by |
 |---|---|---|---|
-| **state** | `Status` | enum (single) | every list-by-state command, `update-state`, the normalised `state` key in JSON output |
+| **state** | `Status` | enum (single) | every list-by-state command, `update-state`, normalised `state` key |
 | **priority** | `Priority` | enum (single) | `create-issue --priority=P3`, normalised `priority` key |
 | **type** | `Type` | enum (single) | `create-issue --type=Bug`, normalised `type` key |
 
 > "state" vs "Status" — we picked **state** as the public-surface name (it's the standard term in workflow engines), but on the wire the package reads/writes YouTrack's `Status` custom field. They mean the same thing: the column a ticket sits in on your kanban board.
+
+### Tier 2 — recommended for `dev-agent` / log-monitor integration
+
+Strongly recommended if you're driving the project with `dev-agent` or the production log monitor. Missing any of these makes features silently degrade rather than fail.
+
+| Field | Type | What uses it |
+|---|---|---|
+| `PR URL` | string | dev-agent saves the GitHub PR URL after opening it: `youtrack:set-field NB-X "PR URL" "https://..."` |
+| `Error Count` | integer | log monitor stores how many CloudWatch occurrences a fingerprint has seen |
+| `System Area` | enum | optional routing — which subsystem the issue concerns |
+| `Requested By` | enum | optional — who in the company asked for it |
+| `Linked Initiative` | string | optional — links a ticket to a higher-level OKR / project |
+
+Add these in **Project Settings → Fields** in the YouTrack UI. The CLI doesn't care about types beyond what each command sends, so plain strings work where you don't need an enum.
+
+### Tier 3 — anything else
+
+The package doesn't hard-code field names beyond tier 1. Custom fields specific to your org work transparently:
+
+```bash
+# Read every custom field on a ticket — `custom_fields` in the JSON output
+# carries the full untouched map.
+php artisan youtrack:get-issue NB-123
+
+# Write any field by exact name — works for stock + custom.
+php artisan youtrack:set-field NB-123 "QA Approval" "Verified by Hugo"
+```
+
+### Verifying your setup
+
+Run the doctor command after configuring the project — it lists every custom field and splits them into tiers, returning exit code `0` when tier 1 is complete and `1` when something required is missing.
+
+```bash
+php artisan youtrack:check-project --project=NB
+```
+
+```json
+{
+    "project": "NB",
+    "ready": true,
+    "tier_1": {
+        "configured": ["Status", "Priority", "Type"],
+        "missing": []
+    },
+    "tier_2": {
+        "configured": ["PR URL"],
+        "missing": ["Error Count", "System Area", "Requested By", "Linked Initiative"]
+    },
+    "extra_fields": ["Custom Org Field"],
+    "all_fields": ["Status", "Priority", "Type", "PR URL", "Custom Org Field"]
+}
+```
 
 ### Recommended state vocabulary
 
@@ -147,6 +203,14 @@ php artisan youtrack:bulk-search-fingerprints '["abc123","def456","ghi789"]' --p
 ```
 
 Hits multiple error-fingerprint hashes in a single API call — used by error-monitoring pipelines to dedupe before opening new tickets.
+
+### Checking project setup
+
+```bash
+php artisan youtrack:check-project --project=NB
+```
+
+Audits the project's custom fields against tier 1 (required) and tier 2 (recommended). Exit code `0` when ready, `1` when a tier-1 field is missing or the project doesn't exist. See *YouTrack project setup* below.
 
 ## Programmatic use
 

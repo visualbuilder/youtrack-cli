@@ -509,6 +509,44 @@ class IssueService
     }
 
     /**
+     * List the custom field names configured on a YouTrack project.
+     *
+     * Used by the `youtrack:check-project` doctor command to verify a host's
+     * project has the fields the CLI relies on. Hits the admin endpoint —
+     * the configured token must have project-admin or sufficient read scope.
+     *
+     * @return Collection<int, string>
+     */
+    public function getProjectFields(?string $project = null): Collection
+    {
+        $project = $project ?? $this->youTrack->defaultProject();
+
+        $response = $this->youTrack->http()->get('admin/projects', [
+            'query' => $project,
+            'fields' => 'shortName,customFields(field(name))',
+            '$top' => 50,
+        ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                "Failed to load project fields: {$response->status()} - {$response->body()}"
+            );
+        }
+
+        $match = collect($response->json())
+            ->firstWhere('shortName', $project);
+
+        if ($match === null) {
+            throw new RuntimeException("Project '{$project}' was not found in YouTrack.");
+        }
+
+        return collect($match['customFields'] ?? [])
+            ->map(static fn (array $entry): ?string => $entry['field']['name'] ?? null)
+            ->filter()
+            ->values();
+    }
+
+    /**
      * Escape special characters in YouTrack query.
      */
     protected function escapeQuery(string $value): string
