@@ -2,14 +2,6 @@
 
 declare(strict_types=1);
 
-/*
- *     This file is part of neurohub.uk
- *     (c) Optima Cloud Technologies <lee@optimacloud.pro>
- *     @author Lee Evans
- *     @copyright 2023-2025 Optima Cloud Technologies
- *     This software is licensed to Neurobox for use in perpetuity, subject to agreement.
- */
-
 namespace Visualbuilder\YoutrackCli\Console\Commands;
 
 use Visualbuilder\YoutrackCli\Services\IssueService;
