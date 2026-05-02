@@ -28,6 +28,37 @@ YOUTRACK_DEFAULT_PROJECT=NB
 
 Workflow-state names default to a sensible 10-step lifecycle (Ready for Dev → In Progress → Code Review → … → Done) and are env-overridable via `config/youtrack.php`.
 
+## YouTrack project setup
+
+The CLI reads three YouTrack custom fields. Make sure your project has them configured before pointing the package at it.
+
+| What we call it | YouTrack custom field | Type | Used by |
+|---|---|---|---|
+| **state** | `Status` | enum (single) | every list-by-state command, `update-state`, the normalised `state` key in JSON output |
+| **priority** | `Priority` | enum (single) | `create-issue --priority=P3`, normalised `priority` key |
+| **type** | `Type` | enum (single) | `create-issue --type=Bug`, normalised `type` key |
+
+> "state" vs "Status" — we picked **state** as the public-surface name (it's the standard term in workflow engines), but on the wire the package reads/writes YouTrack's `Status` custom field. They mean the same thing: the column a ticket sits in on your kanban board.
+
+### Recommended state vocabulary
+
+The package's default state names match a ten-step development lifecycle. If your YouTrack project's `Status` enum values are different, override them in `config/youtrack.php` (or via env in your service provider) — every list/update command resolves through that map, no hard-coded strings in command bodies.
+
+| Config key | Default value |
+|---|---|
+| `youtrack.states.ready` | Ready for Dev |
+| `youtrack.states.plan_review` | Plan Review |
+| `youtrack.states.in_progress` | In Progress |
+| `youtrack.states.code_review` | Code Review |
+| `youtrack.states.developer_approved` | Developer Approved |
+| `youtrack.states.ready_for_qa` | Ready for QA |
+| `youtrack.states.ready_for_staging` | Ready for Staging |
+| `youtrack.states.staging_review` | Staging Review |
+| `youtrack.states.ready_for_production` | Ready for Production |
+| `youtrack.states.done` | Done |
+
+Adding new states is a config-only change; the CLI never hard-codes a value beyond what `config('youtrack.states.*')` returns.
+
 ## Commands
 
 Every command writes a JSON document to stdout — friendly for `jq`, AI agents, and shell pipelines.

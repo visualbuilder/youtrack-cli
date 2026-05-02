@@ -41,6 +41,15 @@
             "Visualbuilder\\YoutrackCli\\Tests\\": "tests"
         }
     },
+    "scripts": {
+        "test": "vendor/bin/pest"
+    },
+    "config": {
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "phpstan/extension-installer": true
+        }
+    },
     "extra": {
         "laravel": {
             "providers": [
