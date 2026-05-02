@@ -36,11 +36,13 @@ The CLI reads YouTrack custom fields by exact name. Fields fall into three tiers
 
 The CLI cannot do useful work without these. They are stock YouTrack defaults — every project ships with them.
 
-| What we call it | YouTrack custom field | Type | Used by |
+| What we call it | YouTrack custom field | YouTrack type | Used by |
 |---|---|---|---|
-| **state** | `Status` | enum (single) | every list-by-state command, `update-state`, normalised `state` key |
+| **state** | `Status` | state (single) | every list-by-state command, `update-state`, normalised `state` key |
 | **priority** | `Priority` | enum (single) | `create-issue --priority=P3`, normalised `priority` key |
 | **type** | `Type` | enum (single) | `create-issue --type=Bug`, normalised `type` key |
+
+YouTrack's `state` type is workflow-aware — its values are the kanban columns of the project. Tier 1 uses YouTrack's stock field set, so a fresh project ships ready out of the box.
 
 > "state" vs "Status" — we picked **state** as the public-surface name (it's the standard term in workflow engines), but on the wire the package reads/writes YouTrack's `Status` custom field. They mean the same thing: the column a ticket sits in on your kanban board.
 
@@ -48,13 +50,13 @@ The CLI cannot do useful work without these. They are stock YouTrack defaults �
 
 Strongly recommended if you're driving the project with `dev-agent` or the production log monitor. Missing any of these makes features silently degrade rather than fail.
 
-| Field | Type | What uses it |
+| Field | YouTrack type | What uses it |
 |---|---|---|
 | `PR URL` | string | dev-agent saves the GitHub PR URL after opening it: `youtrack:set-field NB-X "PR URL" "https://..."` |
-| `Error Count` | integer | log monitor stores how many CloudWatch occurrences a fingerprint has seen |
-| `System Area` | enum | optional routing — which subsystem the issue concerns |
-| `Requested By` | enum | optional — who in the company asked for it |
-| `Linked Initiative` | string | optional — links a ticket to a higher-level OKR / project |
+| `Error Count` | integer | log monitor stores how many production-error occurrences a fingerprint has seen |
+| `System Area` | enum (single) | optional routing — which subsystem the issue concerns |
+| `Requested By` | string | optional — who in the company asked for it |
+| `Linked Initiative` | enum (single) | optional — links a ticket to a higher-level OKR / project |
 
 Add these in **Project Settings → Fields** in the YouTrack UI. The CLI doesn't care about types beyond what each command sends, so plain strings work where you don't need an enum.
 
