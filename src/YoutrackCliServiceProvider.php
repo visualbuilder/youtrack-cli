@@ -43,4 +43,15 @@ class YoutrackCliServiceProvider extends PackageServiceProvider
                 UpdateStateCommand::class,
             ]);
     }
+
+    public function packageBooted(): void
+    {
+        // Ship the Claude Code skill (and any future ones in the package's
+        // `.claude/` folder) as a publishable artifact. Hosts opt-in via
+        // `php artisan vendor:publish --tag=youtrack-cli-claude-skills`,
+        // which copies into the host project's `.claude/commands/`.
+        $this->publishes([
+            __DIR__ . '/../.claude/commands' => base_path('.claude/commands'),
+        ], 'youtrack-cli-claude-skills');
+    }
 }
