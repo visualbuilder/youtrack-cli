@@ -16,6 +16,14 @@ The service provider auto-registers; no manual wiring needed. Optionally publish
 php artisan vendor:publish --tag=youtrack-cli-config
 ```
 
+If you drive YouTrack with Claude Code, install the bundled slash-command skill into your host's `.claude/commands/`:
+
+```bash
+php artisan vendor:publish --tag=youtrack-cli-claude-skills
+```
+
+`/youtrack` then gives Claude the full command surface, lifecycle walkthrough, and project-setup pointers as context.
+
 ## Configure
 
 Set in your host `.env`:
