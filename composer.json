@@ -1,0 +1,53 @@
+{
+    "name": "visualbuilder/youtrack-cli",
+    "description": "Laravel artisan commands for YouTrack workflow automation — extracted so dev-agent and any consumer Laravel project share one source of truth.",
+    "keywords": [
+        "visualbuilder",
+        "youtrack",
+        "laravel",
+        "artisan",
+        "agentic",
+        "workflow"
+    ],
+    "homepage": "https://github.com/visualbuilder/youtrack-cli",
+    "license": "GPL-2.0-or-later",
+    "type": "library",
+    "authors": [
+        {
+            "name": "Visual Builder",
+            "email": "support@ekouk.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/console": "^11.0 || ^12.0",
+        "illuminate/http": "^11.0 || ^12.0",
+        "illuminate/support": "^11.0 || ^12.0",
+        "spatie/laravel-package-tools": "^1.16"
+    },
+    "require-dev": {
+        "orchestra/testbench": "^9.0 || ^10.0",
+        "pestphp/pest": "^3.0 || ^4.0",
+        "pestphp/pest-plugin-laravel": "^3.0 || ^4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Visualbuilder\\YoutrackCli\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Visualbuilder\\YoutrackCli\\Tests\\": "tests"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Visualbuilder\\YoutrackCli\\YoutrackCliServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

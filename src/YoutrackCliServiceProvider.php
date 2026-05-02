@@ -1,0 +1,44 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Visualbuilder\YoutrackCli;
+
+use Spatie\LaravelPackageTools\Package;
+use Spatie\LaravelPackageTools\PackageServiceProvider;
+use Visualbuilder\YoutrackCli\Console\Commands\AddCommentCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\BulkSearchFingerprintsCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\CreateIssueCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\GetIssueCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\ListApprovedCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\ListBlockedCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\ListReadyCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\ListReadyForProductionCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\ListReadyForStagingCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\SearchCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\SetFieldCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\UpdateStateCommand;
+
+class YoutrackCliServiceProvider extends PackageServiceProvider
+{
+    public function configurePackage(Package $package): void
+    {
+        $package
+            ->name('youtrack-cli')
+            ->hasConfigFile('youtrack')
+            ->hasCommands([
+                AddCommentCommand::class,
+                BulkSearchFingerprintsCommand::class,
+                CreateIssueCommand::class,
+                GetIssueCommand::class,
+                ListApprovedCommand::class,
+                ListBlockedCommand::class,
+                ListReadyCommand::class,
+                ListReadyForProductionCommand::class,
+                ListReadyForStagingCommand::class,
+                SearchCommand::class,
+                SetFieldCommand::class,
+                UpdateStateCommand::class,
+            ]);
+    }
+}
