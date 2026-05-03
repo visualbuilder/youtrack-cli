@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Visualbuilder\YoutrackCli\Console\Commands;
 
 use Visualbuilder\YoutrackCli\Services\IssueService;
-use Illuminate\Console\Command;
 
-class CreateIssueCommand extends Command
+class CreateIssueCommand extends BaseCommand
 {
     protected $signature = 'youtrack:create-issue
                             {project : Project short name (e.g., NB)}
@@ -18,28 +17,18 @@ class CreateIssueCommand extends Command
 
     protected $description = 'Create a new YouTrack issue';
 
-    public function handle(IssueService $issueService): int
+    protected function youtrackHandle(): int
     {
-        $project = $this->argument('project');
-        $summary = $this->argument('summary');
-        $description = $this->argument('description');
-        $type = $this->option('type');
-        $priority = $this->option('priority');
+        $this->emitJson(
+            $this->issueService()->createIssue(
+                project: (string) $this->argument('project'),
+                summary: (string) $this->argument('summary'),
+                description: (string) $this->argument('description'),
+                type: (string) $this->option('type'),
+                priority: (string) $this->option('priority'),
+            ),
+        );
 
-        try {
-            $result = $issueService->createIssue($project, $summary, $description, $type, $priority);
-
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-
-            return Command::SUCCESS;
-        } catch (\Exception $e) {
-            $this->error(json_encode([
-                'error' => true,
-                'project' => $project,
-                'message' => $e->getMessage(),
-            ], JSON_PRETTY_PRINT));
-
-            return Command::FAILURE;
-        }
+        return self::SUCCESS;
     }
 }

@@ -4,46 +4,18 @@ declare(strict_types=1);
 
 namespace Visualbuilder\YoutrackCli\Console\Commands;
 
-use Visualbuilder\YoutrackCli\Services\IssueService;
-use Illuminate\Console\Command;
-
-class ListReadyCommand extends Command
+class ListReadyCommand extends ListByStateCommand
 {
     protected $signature = 'youtrack:list-ready
-                            {--project= : Project short name (e.g., NB)}';
+                            {--project= : Project short name (e.g., NB)}
+                            {--query= : Extra YQL appended after the Status filter}
+                            {--page=1 : Page of results to return}
+                            {--per-page=100 : Records per page, capped at 1000}';
 
     protected $description = 'List YouTrack issues that are ready for development';
 
-    public function handle(IssueService $issueService): int
+    protected function stateConfigKey(): string
     {
-        $project = $this->option('project');
-
-        try {
-            $issues = $issueService->listReady($project);
-
-            $output = [
-                'count' => $issues->count(),
-                'project' => $project ?? config('youtrack.default_project'),
-                'state' => config('youtrack.states.ready'),
-                'issues' => $issues->map(fn (array $issue) => [
-                    'id' => $issue['id'],
-                    'summary' => $issue['summary'],
-                    'priority' => $issue['priority'],
-                    'type' => $issue['type'],
-                    'created' => $issue['created'],
-                ])->values()->toArray(),
-            ];
-
-            $this->line(json_encode($output, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-
-            return Command::SUCCESS;
-        } catch (\Exception $e) {
-            $this->error(json_encode([
-                'error' => true,
-                'message' => $e->getMessage(),
-            ], JSON_PRETTY_PRINT));
-
-            return Command::FAILURE;
-        }
+        return 'ready';
     }
 }

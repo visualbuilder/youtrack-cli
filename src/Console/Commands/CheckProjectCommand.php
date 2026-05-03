@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Visualbuilder\YoutrackCli\Console\Commands;
 
-use Illuminate\Console\Command;
+use Throwable;
 use Visualbuilder\YoutrackCli\Services\IssueService;
 
-class CheckProjectCommand extends Command
+class CheckProjectCommand extends BaseCommand
 {
     protected $signature = 'youtrack:check-project
                             {--project= : Project short name (defaults to youtrack.default_project)}';
@@ -38,23 +38,10 @@ class CheckProjectCommand extends Command
         'Linked Initiative',
     ];
 
-    public function handle(IssueService $issueService): int
+    protected function youtrackHandle(): int
     {
-        $project = $this->option('project') ?? config('youtrack.default_project', 'NB');
-
-        try {
-            $fields = $issueService->getProjectFields($project);
-        } catch (\Throwable $e) {
-            $this->line(json_encode([
-                'error' => true,
-                'project' => $project,
-                'message' => $e->getMessage(),
-            ], JSON_PRETTY_PRINT));
-
-            return self::FAILURE;
-        }
-
-        $configured = $fields->all();
+        $project = $this->resolveProject();
+        $configured = $this->issueService()->getProjectFields($project)->all();
 
         $tier1Present = array_values(array_intersect(self::TIER_1_REQUIRED, $configured));
         $tier1Missing = array_values(array_diff(self::TIER_1_REQUIRED, $configured));
@@ -63,10 +50,9 @@ class CheckProjectCommand extends Command
 
         $known = array_merge(self::TIER_1_REQUIRED, self::TIER_2_RECOMMENDED);
         $extras = array_values(array_diff($configured, $known));
-
         $ready = $tier1Missing === [];
 
-        $this->line(json_encode([
+        $this->emitJson([
             'project' => $project,
             'ready' => $ready,
             'tier_1' => [
@@ -79,8 +65,20 @@ class CheckProjectCommand extends Command
             ],
             'extra_fields' => $extras,
             'all_fields' => $configured,
-        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        ]);
 
         return $ready ? self::SUCCESS : self::FAILURE;
+    }
+
+    protected function errorPayload(Throwable $e): array
+    {
+        return parent::errorPayload($e) + [
+            'project' => $this->resolveProject(),
+        ];
+    }
+
+    private function resolveProject(): string
+    {
+        return (string) ($this->option('project') ?: config('youtrack.default_project', 'NB'));
     }
 }

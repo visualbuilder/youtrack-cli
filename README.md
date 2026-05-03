@@ -1,8 +1,8 @@
 # YouTrack CLI
 
-Laravel artisan commands for driving YouTrack issue workflows from the terminal, scripts, and AI agents.
+Laravel artisan commands, MCP tools, and a webhook receiver for driving YouTrack issue workflows from terminals, scripts, and AI agents.
 
-Twelve commands, JSON output, env-driven config. Designed to be the source of truth that any consumer (a coding agent, a CI pipeline, a developer's terminal, a slash command) can call.
+20 commands, 20 MCP tools, structured-error JSON envelopes, multi-instance config, signed-webhook receiver. Designed to be the source of truth any consumer (coding agent, CI pipeline, developer's terminal, MCP-aware IDE, slash command) can call.
 
 ## Install
 
@@ -35,6 +35,45 @@ YOUTRACK_DEFAULT_PROJECT=NB
 ```
 
 Workflow-state names default to a sensible 10-step lifecycle (Ready for Dev → In Progress → Code Review → … → Done) and are env-overridable via `config/youtrack.php`.
+
+### Multi-instance
+
+Hosts that talk to several YouTrack workspaces at once can define them under `youtrack.connections` and pick one per call:
+
+```php
+// config/youtrack.php
+'default_connection' => 'default',
+'connections' => [
+    'default' => [
+        'base_url' => env('YOUTRACK_BASE_URL'),
+        'token' => env('YOUTRACK_TOKEN'),
+        'default_project' => 'NB',
+    ],
+    'support' => [
+        'base_url' => env('YOUTRACK_SUPPORT_BASE_URL'),
+        'token' => env('YOUTRACK_SUPPORT_TOKEN'),
+        'default_project' => 'SUPP',
+    ],
+],
+```
+
+Every artisan command accepts `--instance=NAME`; programmatic callers use `(new YouTrackService())->on('support')` or `app(IssueService::class)->on('support')`.
+
+The legacy top-level `youtrack.base_url` / `youtrack.token` keys keep working forever as the implicit `default` connection — no migration required.
+
+### MCP server (optional)
+
+When `laravel/mcp` is installed, the package registers a `youtrack` MCP server exposing every artisan command as an agent-callable tool. Disable via `YOUTRACK_MCP_ENABLED=false` if you want CLI-only.
+
+### Webhook receiver
+
+Inbound YouTrack webhooks land at `POST /youtrack/webhook`. Configure the same secret in your YouTrack project's webhook settings and in `.env`:
+
+```dotenv
+YOUTRACK_WEBHOOK_SECRET=base64-string-shared-with-youtrack
+```
+
+Subscribe to `Visualbuilder\YoutrackCli\Events\YoutrackWebhookReceived` from the host's `EventServiceProvider` to react to deliveries. The package itself ships zero default behaviour — what to do with an event is a host concern. Idempotent on `X-YouTrack-Delivery-Id` for 24h.
 
 ## YouTrack project setup
 

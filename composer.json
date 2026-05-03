@@ -27,9 +27,13 @@
         "spatie/laravel-package-tools": "^1.16"
     },
     "require-dev": {
+        "laravel/mcp": "^0.5",
         "orchestra/testbench": "^9.0 || ^10.0",
         "pestphp/pest": "^3.0 || ^4.0",
         "pestphp/pest-plugin-laravel": "^3.0 || ^4.0"
+    },
+    "suggest": {
+        "laravel/mcp": "Required to register the YouTrack MCP server, exposing the artisan command surface as MCP tools."
     },
     "autoload": {
         "psr-4": {

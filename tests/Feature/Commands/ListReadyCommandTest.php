@@ -41,3 +41,27 @@ it('returns count=0 when YouTrack reports no matching issues', function (): void
     expect($payload['count'])->toBe(0)
         ->and($payload['issues'])->toBe([]);
 });
+
+it('--instance routes the command to the named connection\'s base URL', function (): void {
+    config([
+        'youtrack.connections.support' => [
+            'base_url' => 'https://support.youtrack.cloud',
+            'token' => 'perm:support-token',
+            'default_project' => 'SUPP',
+        ],
+    ]);
+
+    Http::fake(['*' => Http::response([])]);
+
+    expect(Artisan::call('youtrack:list-ready', [
+        '--project' => 'SUPP',
+        '--instance' => 'support',
+    ]))->toBe(0);
+
+    Http::assertSent(static fn ($request): bool =>
+        // The default fake base URL is https://example.youtrack.cloud — proving
+        // the request routed to *support* shows --instance plumbing reaches all
+        // the way through BaseCommand → IssueService::on() → YouTrackService.
+        str_starts_with($request->url(), 'https://support.youtrack.cloud/api/issues')
+    );
+});

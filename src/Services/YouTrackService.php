@@ -10,25 +10,43 @@ use RuntimeException;
 
 /**
  * Base service for YouTrack API integration.
- * Provides authentication and HTTP client configuration.
+ *
+ * Multi-instance: the package supports a `youtrack.connections.NAME` map
+ * so a single host can talk to several YouTrack workspaces. Hosts that
+ * still use the legacy top-level `youtrack.base_url` / `youtrack.token`
+ * keys keep working — the resolver falls back to those as the implicit
+ * `default` connection (no migration required, ever).
  */
 class YouTrackService
 {
+    private string $connection;
+
+    public function __construct(?string $connection = null)
+    {
+        $this->connection = $connection
+            ?? (string) config('youtrack.default_connection', 'default');
+    }
+
     /**
-     * Check if YouTrack integration is configured.
+     * Return a new service instance bound to a different named connection.
+     * The original instance is left untouched — useful for one-off calls
+     * against a non-default workspace from inside long-lived code that
+     * usually wants the default.
      */
+    public function on(string $connection): static
+    {
+        return new static($connection);
+    }
+
     public function isEnabled(): bool
     {
         return $this->hasCredentials();
     }
 
-    /**
-     * Get HTTP client configured with authentication token.
-     */
     public function http(): PendingRequest
     {
         if (! $this->hasCredentials()) {
-            throw new RuntimeException('YouTrack integration is not configured.');
+            throw new RuntimeException("YouTrack connection '{$this->connection}' is not configured.");
         }
 
         $timeout = max(5, (int) config('youtrack.http_timeout', 30));
@@ -48,51 +66,63 @@ class YouTrackService
         return $request;
     }
 
-    /**
-     * Get the base URL for the YouTrack API.
-     */
     public function baseUrl(): string
     {
-        $url = config('youtrack.base_url');
+        $url = $this->connectionConfig('base_url') ?? config('youtrack.base_url');
 
         if (! $url) {
-            throw new RuntimeException('YouTrack base URL is not configured.');
+            throw new RuntimeException("YouTrack base URL is not configured for connection '{$this->connection}'.");
         }
 
         return rtrim((string) $url, '/') . '/api';
     }
 
-    /**
-     * Get the default project ID.
-     */
     public function defaultProject(): string
     {
-        return (string) config('youtrack.default_project', 'NB');
+        return (string) (
+            $this->connectionConfig('default_project')
+            ?? config('youtrack.default_project', 'NB')
+        );
     }
 
     /**
-     * Get the state name for a given state key.
-     *
-     * @param  string  $key  One of: ready, in_progress, blocked, done
+     * Get the configured state name for a given state key. State names are
+     * always read from the top-level `youtrack.states` map — connection-
+     * scoping them is unnecessary because the dev-agent's lifecycle is
+     * host-wide, not per-workspace.
      */
     public function stateName(string $key): string
     {
         return (string) config("youtrack.states.{$key}", $key);
     }
 
-    /**
-     * Check if credentials are configured.
-     */
+    public function connectionName(): string
+    {
+        return $this->connection;
+    }
+
     protected function hasCredentials(): bool
     {
-        return (bool) ($this->baseUrl() && $this->token());
+        $base = $this->connectionConfig('base_url') ?? config('youtrack.base_url');
+        $token = $this->connectionConfig('token') ?? config('youtrack.token');
+
+        return ! empty($base) && ! empty($token);
+    }
+
+    protected function token(): ?string
+    {
+        $value = $this->connectionConfig('token') ?? config('youtrack.token');
+
+        return $value === null ? null : (string) $value;
     }
 
     /**
-     * Get the API token.
+     * Read a per-connection config key. Returns null if the connection
+     * isn't defined or the key is missing — callers fall back to the
+     * top-level `youtrack.*` shim.
      */
-    protected function token(): ?string
+    protected function connectionConfig(string $key): mixed
     {
-        return config('youtrack.token');
+        return config("youtrack.connections.{$this->connection}.{$key}");
     }
 }

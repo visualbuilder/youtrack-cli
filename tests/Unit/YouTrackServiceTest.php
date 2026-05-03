@@ -29,7 +29,7 @@ it('throws when no token is configured and the http client is requested', functi
     config(['youtrack.token' => null]);
 
     app(YouTrackService::class)->http();
-})->throws(RuntimeException::class, 'YouTrack integration is not configured');
+})->throws(RuntimeException::class, "connection 'default' is not configured");
 
 it('sends a Bearer auth header on outbound requests', function (): void {
     Http::fake();
@@ -39,6 +39,29 @@ it('sends a Bearer auth header on outbound requests', function (): void {
     Http::assertSent(static fn ($request) =>
         $request->hasHeader('Authorization', 'Bearer perm:test-token')
     );
+});
+
+it('routes per-connection credentials when --instance picks a non-default workspace', function (): void {
+    config([
+        'youtrack.connections.support' => [
+            'base_url' => 'https://support.youtrack.cloud',
+            'token' => 'perm:support-token',
+            'default_project' => 'SUPP',
+        ],
+    ]);
+
+    $support = (new \Visualbuilder\YoutrackCli\Services\YouTrackService())->on('support');
+
+    expect($support->baseUrl())->toBe('https://support.youtrack.cloud/api')
+        ->and($support->defaultProject())->toBe('SUPP')
+        ->and($support->connectionName())->toBe('support');
+});
+
+it('falls back to the legacy top-level base_url/token shim for the default connection', function (): void {
+    // Top-level keys only — no `youtrack.connections.default` configured.
+    // Resolver should still find the credentials via the shim.
+    expect(app(\Visualbuilder\YoutrackCli\Services\YouTrackService::class)->baseUrl())
+        ->toBe('https://example.youtrack.cloud/api');
 });
 
 it('resolves state names from config with a fallback', function (): void {

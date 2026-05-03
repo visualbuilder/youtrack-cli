@@ -17,6 +17,15 @@ class IssueService
     ) {}
 
     /**
+     * Return an IssueService bound to a different named connection. Useful
+     * when a single host operates against multiple YouTrack workspaces.
+     */
+    public function on(string $connection): static
+    {
+        return new static($this->youTrack->on($connection));
+    }
+
+    /**
      * List issues in a given state for a project.
      *
      * @param  string  $state  State name (e.g., "Ready for Dev")
@@ -152,14 +161,10 @@ class IssueService
      */
     public function updateState(string $issueId, string $state): array
     {
-        // First get the issue to find the Status field ID
-        $issue = $this->getIssueRaw($issueId);
-        $stateField = $this->findCustomField($issue, 'Status');
-
-        if (! $stateField) {
-            throw new RuntimeException("Cannot find Status field for issue {$issueId}");
-        }
-
+        // YouTrack accepts the state PATCH directly — no preflight GET needed.
+        // The customField's $type is fixed (`StateIssueCustomField`); if the
+        // project doesn't have a Status field the API will respond 4xx and we
+        // surface that below.
         $response = $this->youTrack->http()->post("issues/{$issueId}", [
             'customFields' => [
                 [
@@ -181,6 +186,224 @@ class IssueService
         return [
             'issue_id' => $issueId,
             'new_state' => $state,
+            'success' => true,
+        ];
+    }
+
+    /**
+     * Patch an issue's top-level summary and/or description in one round
+     * trip. Pass `null` to leave a field untouched.
+     *
+     * @return array<string, mixed>
+     */
+    public function updateIssue(string $issueId, ?string $summary = null, ?string $description = null): array
+    {
+        $payload = array_filter(
+            ['summary' => $summary, 'description' => $description],
+            static fn ($value): bool => $value !== null,
+        );
+
+        if ($payload === []) {
+            throw new RuntimeException('updateIssue requires at least one of $summary or $description.');
+        }
+
+        $response = $this->youTrack->http()->post("issues/{$issueId}", $payload);
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                "Failed to update issue {$issueId}: {$response->status()} - {$response->body()}"
+            );
+        }
+
+        return [
+            'issue_id' => $issueId,
+            'updated' => array_keys($payload),
+            'success' => true,
+        ];
+    }
+
+    /**
+     * Assign an issue to a user, or pass `null` to clear the Assignee field.
+     *
+     * @return array<string, mixed>
+     */
+    public function assignIssue(string $issueId, ?string $assigneeLogin): array
+    {
+        $response = $this->youTrack->http()->post("issues/{$issueId}", [
+            'customFields' => [
+                [
+                    'name' => 'Assignee',
+                    '$type' => 'SingleUserIssueCustomField',
+                    'value' => $assigneeLogin === null ? null : ['login' => $assigneeLogin],
+                ],
+            ],
+        ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                "Failed to assign {$issueId}: {$response->status()} - {$response->body()}"
+            );
+        }
+
+        return [
+            'issue_id' => $issueId,
+            'assignee' => $assigneeLogin,
+            'success' => true,
+        ];
+    }
+
+    /**
+     * Add a tag to an issue. YouTrack creates the tag if it doesn't exist
+     * (subject to project permissions).
+     *
+     * @return array<string, mixed>
+     */
+    public function addTag(string $issueId, string $tag): array
+    {
+        $response = $this->youTrack->http()->post("issues/{$issueId}/tags", [
+            'name' => $tag,
+        ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                "Failed to add tag '{$tag}' to {$issueId}: {$response->status()} - {$response->body()}"
+            );
+        }
+
+        return [
+            'issue_id' => $issueId,
+            'tag' => $tag,
+            'action' => 'added',
+            'success' => true,
+        ];
+    }
+
+    /**
+     * Remove a tag from an issue. Resolves the tag's id by listing the
+     * issue's tags first since YouTrack's DELETE endpoint requires it.
+     *
+     * @return array<string, mixed>
+     */
+    public function removeTag(string $issueId, string $tag): array
+    {
+        $listResponse = $this->youTrack->http()->get("issues/{$issueId}/tags", [
+            'fields' => 'id,name',
+        ]);
+
+        if ($listResponse->failed()) {
+            throw new RuntimeException(
+                "Failed to read tags for {$issueId}: {$listResponse->status()} - {$listResponse->body()}"
+            );
+        }
+
+        $tagId = collect($listResponse->json())
+            ->firstWhere('name', $tag)['id'] ?? null;
+
+        if ($tagId === null) {
+            throw new RuntimeException("Tag '{$tag}' is not on issue {$issueId}.");
+        }
+
+        $deleteResponse = $this->youTrack->http()
+            ->delete("issues/{$issueId}/tags/{$tagId}");
+
+        if ($deleteResponse->failed()) {
+            throw new RuntimeException(
+                "Failed to remove tag '{$tag}' from {$issueId}: {$deleteResponse->status()} - {$deleteResponse->body()}"
+            );
+        }
+
+        return [
+            'issue_id' => $issueId,
+            'tag' => $tag,
+            'action' => 'removed',
+            'success' => true,
+        ];
+    }
+
+    /**
+     * Link two issues using YouTrack's `commands` endpoint, which accepts
+     * the natural-language command syntax ("depends on NB-2", "duplicates
+     * NB-3", etc.).
+     *
+     * @return array<string, mixed>
+     */
+    public function linkIssues(string $fromIssueId, string $toIssueId, string $linkTypeName = 'depends on'): array
+    {
+        $response = $this->youTrack->http()->post('commands', [
+            'query' => "{$linkTypeName} {$toIssueId}",
+            'issues' => [
+                ['idReadable' => $fromIssueId],
+            ],
+        ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                "Failed to link {$fromIssueId} -> {$toIssueId}: {$response->status()} - {$response->body()}"
+            );
+        }
+
+        return [
+            'from' => $fromIssueId,
+            'to' => $toIssueId,
+            'link_type' => $linkTypeName,
+            'success' => true,
+        ];
+    }
+
+    /**
+     * Set Resolution + Status in a single round trip — atomic, so the
+     * issue can't be left in a half-resolved state if the second update
+     * had failed.
+     *
+     * @return array<string, mixed>
+     */
+    public function resolveIssue(string $issueId, string $resolution, string $state): array
+    {
+        $response = $this->youTrack->http()->post("issues/{$issueId}", [
+            'customFields' => [
+                ['name' => 'Status', '$type' => 'StateIssueCustomField', 'value' => ['name' => $state]],
+                ['name' => 'Resolution', '$type' => 'SingleEnumIssueCustomField', 'value' => ['name' => $resolution]],
+            ],
+        ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                "Failed to resolve {$issueId}: {$response->status()} - {$response->body()}"
+            );
+        }
+
+        return [
+            'issue_id' => $issueId,
+            'state' => $state,
+            'resolution' => $resolution,
+            'success' => true,
+        ];
+    }
+
+    /**
+     * Re-open a previously resolved issue: clear Resolution and move
+     * Status back to the configured open state.
+     *
+     * @return array<string, mixed>
+     */
+    public function reopenIssue(string $issueId, string $state): array
+    {
+        $response = $this->youTrack->http()->post("issues/{$issueId}", [
+            'customFields' => [
+                ['name' => 'Status', '$type' => 'StateIssueCustomField', 'value' => ['name' => $state]],
+                ['name' => 'Resolution', '$type' => 'SingleEnumIssueCustomField', 'value' => null],
+            ],
+        ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                "Failed to reopen {$issueId}: {$response->status()} - {$response->body()}"
+            );
+        }
+
+        return [
+            'issue_id' => $issueId,
+            'state' => $state,
             'success' => true,
         ];
     }
@@ -347,8 +570,54 @@ class IssueService
             return null;
         }
 
-        // YouTrack returns timestamps in milliseconds
-        return date('Y-m-d\TH:i:s\Z', (int) ($timestamp / 1000));
+        // YouTrack returns timestamps in milliseconds. Use gmdate so the
+        // emitted value is genuinely UTC regardless of the server's local
+        // timezone — date() applies the local TZ then we'd be lying with
+        // the trailing `Z`.
+        return gmdate('Y-m-d\TH:i:s\Z', (int) ($timestamp / 1000));
+    }
+
+    /**
+     * Run a raw YouTrack query (YQL) and return normalised issues.
+     *
+     * The escape hatch every consumer eventually wants — assignee filters,
+     * date ranges, sort orders, complex boolean combinations. The `$project`
+     * argument is a convenience: when present it's prepended as a
+     * `project: {short}` clause; pass `null` (and a fully-qualified YQL) to
+     * search across projects.
+     *
+     * Pagination is YouTrack-native via `$skip`/`$top`. The caller decides
+     * whether there's more data by comparing the returned count against
+     * `$perPage`.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function query(
+        string $yql,
+        ?string $project = null,
+        int $page = 1,
+        int $perPage = 100,
+    ): Collection {
+        $page = max(1, $page);
+        $perPage = max(1, min(1000, $perPage));
+
+        $project = $project ?? $this->youTrack->defaultProject();
+        $fullQuery = trim($project ? "project: {$project} {$yql}" : $yql);
+
+        $response = $this->youTrack->http()->get('issues', [
+            'query' => $fullQuery,
+            'fields' => 'id,idReadable,summary,description,created,updated,customFields(id,name,value(name))',
+            '$skip' => ($page - 1) * $perPage,
+            '$top' => $perPage,
+        ]);
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                "Failed to run YouTrack query: {$response->status()} - {$response->body()}"
+            );
+        }
+
+        return collect($response->json())->map(fn (array $issue) => $this->normalizeIssue($issue));
     }
 
     /**
@@ -362,9 +631,12 @@ class IssueService
     {
         $project = $project ?? $this->youTrack->defaultProject();
 
-        // Use description: field specifier with brace syntax for literal substring matching
-        // This correctly finds tags like [error-fp:abc123] in descriptions
-        $fullQuery = "project: {$project} description: {$this->escapeQuery($query)}";
+        // Hit both summary AND description so callers actually find issues
+        // with the query word in the title (the most common case). YouTrack's
+        // OR groups via the leading `#`-style — bare OR works inside a
+        // project scope.
+        $escaped = $this->escapeQuery($query);
+        $fullQuery = "project: {$project} (summary: {$escaped} or description: {$escaped})";
 
         $response = $this->youTrack->http()->get('issues', [
             'query' => $fullQuery,
@@ -521,11 +793,17 @@ class IssueService
     {
         $project = $project ?? $this->youTrack->defaultProject();
 
-        $response = $this->youTrack->http()->get('admin/projects', [
-            'query' => $project,
+        // Hit the project endpoint directly — `?query=` against
+        // `admin/projects` is fragile when multiple projects share a prefix
+        // (e.g. "NB" matching "NBV"). YouTrack accepts the shortName as the
+        // {id} in this URL.
+        $response = $this->youTrack->http()->get("admin/projects/{$project}", [
             'fields' => 'shortName,customFields(field(name))',
-            '$top' => 50,
         ]);
+
+        if ($response->status() === 404) {
+            throw new RuntimeException("Project '{$project}' was not found in YouTrack.");
+        }
 
         if ($response->failed()) {
             throw new RuntimeException(
@@ -533,14 +811,9 @@ class IssueService
             );
         }
 
-        $match = collect($response->json())
-            ->firstWhere('shortName', $project);
+        $payload = $response->json();
 
-        if ($match === null) {
-            throw new RuntimeException("Project '{$project}' was not found in YouTrack.");
-        }
-
-        return collect($match['customFields'] ?? [])
+        return collect($payload['customFields'] ?? [])
             ->map(static fn (array $entry): ?string => $entry['field']['name'] ?? null)
             ->filter()
             ->values();

@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Visualbuilder\YoutrackCli\Console\Commands;
 
 use Visualbuilder\YoutrackCli\Services\IssueService;
-use Illuminate\Console\Command;
 
-class AddCommentCommand extends Command
+class AddCommentCommand extends BaseCommand
 {
     protected $signature = 'youtrack:add-comment
                             {issue_id : Issue ID (e.g., NB-123)}
@@ -15,25 +14,15 @@ class AddCommentCommand extends Command
 
     protected $description = 'Add a comment to a YouTrack issue';
 
-    public function handle(IssueService $issueService): int
+    protected function youtrackHandle(): int
     {
-        $issueId = $this->argument('issue_id');
-        $comment = $this->argument('comment');
+        $this->emitJson(
+            $this->issueService()->addComment(
+                (string) $this->argument('issue_id'),
+                (string) $this->argument('comment'),
+            ),
+        );
 
-        try {
-            $result = $issueService->addComment($issueId, $comment);
-
-            $this->line(json_encode($result, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-
-            return Command::SUCCESS;
-        } catch (\Exception $e) {
-            $this->error(json_encode([
-                'error' => true,
-                'issue_id' => $issueId,
-                'message' => $e->getMessage(),
-            ], JSON_PRETTY_PRINT));
-
-            return Command::FAILURE;
-        }
+        return self::SUCCESS;
     }
 }

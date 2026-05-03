@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace Visualbuilder\YoutrackCli\Console\Commands;
 
+use InvalidArgumentException;
 use Visualbuilder\YoutrackCli\Services\IssueService;
-use Illuminate\Console\Command;
 
-class BulkSearchFingerprintsCommand extends Command
+class BulkSearchFingerprintsCommand extends BaseCommand
 {
     protected $signature = 'youtrack:bulk-search-fingerprints
                             {fingerprints : JSON array of fingerprint hashes}
@@ -15,41 +15,30 @@ class BulkSearchFingerprintsCommand extends Command
 
     protected $description = 'Search YouTrack for multiple error fingerprints in a single API call';
 
-    public function handle(IssueService $issueService): int
+    protected function youtrackHandle(): int
     {
-        $raw = $this->argument('fingerprints');
-        $project = $this->option('project');
+        $raw = (string) $this->argument('fingerprints');
+        $project = $this->option('project') ?: null;
 
-        $fingerprints = json_decode($raw, true);
-
-        if (! is_array($fingerprints)) {
-            $this->error(json_encode([
-                'error' => true,
-                'message' => 'Invalid JSON array. Expected: \'["fp1","fp2",...]\'',
-            ], JSON_PRETTY_PRINT));
-
-            return Command::FAILURE;
+        /** @var mixed $decoded */
+        $decoded = json_decode($raw, true);
+        if (! is_array($decoded)) {
+            // Throwing rather than emitting inline keeps the structured-error
+            // envelope consistent with every other command — BaseCommand's
+            // catch handles the framing.
+            throw new InvalidArgumentException(
+                'Invalid JSON array. Expected: \'["fp1","fp2",...]\'',
+            );
         }
 
-        try {
-            $results = $issueService->searchMultipleFingerprints($fingerprints, $project);
+        $results = $this->issueService()->searchMultipleFingerprints($decoded, $project);
 
-            $output = [
-                'count' => count(array_filter($results)),
-                'project' => $project ?? config('youtrack.default_project'),
-                'results' => $results,
-            ];
+        $this->emitJson([
+            'count' => count(array_filter($results)),
+            'project' => $project ?? config('youtrack.default_project'),
+            'results' => $results,
+        ]);
 
-            $this->line(json_encode($output, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-
-            return Command::SUCCESS;
-        } catch (\Exception $e) {
-            $this->error(json_encode([
-                'error' => true,
-                'message' => $e->getMessage(),
-            ], JSON_PRETTY_PRINT));
-
-            return Command::FAILURE;
-        }
+        return self::SUCCESS;
     }
 }
