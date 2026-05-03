@@ -219,6 +219,24 @@ it('CreateIssue rejects calls missing project or summary', function (): void {
         ->isError())->toBeTrue();
 });
 
+it('CreateIssue falls back to configured priority/type defaults when omitted', function (): void {
+    config([
+        'youtrack.priorities.default' => 'Major',
+        'youtrack.types.default' => 'Story',
+    ]);
+
+    Http::fake(['*/issues*' => Http::response(['id' => '3-1', 'idReadable' => 'NB-50'])]);
+
+    (new CreateIssue)->handle(new McpRequest(['project' => 'NB', 'summary' => 'q']));
+
+    Http::assertSent(static function ($request): bool {
+        $custom = collect($request->data()['customFields']);
+
+        return $custom->firstWhere('name', 'Type')['value']['name'] === 'Story'
+            && $custom->firstWhere('name', 'Priority')['value']['name'] === 'Major';
+    });
+});
+
 it('UpdateIssue patches summary and reports the changed field set', function (): void {
     Http::fake(['*/issues/NB-1*' => Http::response(['id' => '3-1', 'idReadable' => 'NB-1'])]);
 

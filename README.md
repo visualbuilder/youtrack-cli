@@ -36,6 +36,20 @@ YOUTRACK_DEFAULT_PROJECT=NB
 
 Workflow-state names default to a sensible 10-step lifecycle (Ready for Dev → In Progress → Code Review → … → Done) and are env-overridable via `config/youtrack.php`.
 
+### Custom priority and type vocabularies
+
+Hosts that don't use the stock `Bug / Feature / Task` types or `P1–P5` priority grades configure their own under `youtrack.priorities` and `youtrack.types`:
+
+```dotenv
+# Comma-separated lists. Default values used when --priority / --type are omitted.
+YOUTRACK_PRIORITY_DEFAULT=Major
+YOUTRACK_PRIORITIES=Critical,Major,Normal,Minor,Trivial
+YOUTRACK_TYPE_DEFAULT=Defect
+YOUTRACK_TYPES=Defect,Story,Spike,Epic
+```
+
+The `values` arrays drive the `CreateIssue` MCP tool's JSON-schema enums, so AI agents see exactly which values your YouTrack project accepts. Leave a list empty to disable the constraint and fall back to "anything goes".
+
 ### Multi-instance
 
 Hosts that talk to several YouTrack workspaces at once can define them under `youtrack.connections` and pick one per call:

@@ -96,6 +96,49 @@ class YouTrackService
         return (string) config("youtrack.states.{$key}", $key);
     }
 
+    /**
+     * Default issue priority used when callers don't override. Backed by
+     * `config('youtrack.priorities.default')` so hosts that use a non-
+     * P-grade vocabulary (Critical / Major / etc.) configure once.
+     */
+    public function defaultPriority(): string
+    {
+        return (string) config('youtrack.priorities.default', 'P3');
+    }
+
+    /**
+     * Optional whitelist of accepted priority names — drives MCP enums and
+     * any host-level validators. Empty array means "no constraint".
+     *
+     * @return array<int, string>
+     */
+    public function priorityValues(): array
+    {
+        $values = config('youtrack.priorities.values', []);
+
+        return is_array($values) ? array_values(array_filter($values)) : [];
+    }
+
+    /**
+     * Default issue type used when callers don't override.
+     */
+    public function defaultType(): string
+    {
+        return (string) config('youtrack.types.default', 'Bug');
+    }
+
+    /**
+     * Optional whitelist of accepted type names.
+     *
+     * @return array<int, string>
+     */
+    public function typeValues(): array
+    {
+        $values = config('youtrack.types.values', []);
+
+        return is_array($values) ? array_values(array_filter($values)) : [];
+    }
+
     public function connectionName(): string
     {
         return $this->connection;

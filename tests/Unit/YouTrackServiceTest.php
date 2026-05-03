@@ -72,3 +72,35 @@ it('resolves state names from config with a fallback', function (): void {
     expect($service->stateName('ready'))->toBe('Ready for Dev')
         ->and($service->stateName('unknown_key'))->toBe('unknown_key');
 });
+
+it('exposes configured priority and type defaults + value whitelists', function (): void {
+    config([
+        'youtrack.priorities' => [
+            'default' => 'Critical',
+            'values' => ['Critical', 'Major', 'Normal', 'Minor'],
+        ],
+        'youtrack.types' => [
+            'default' => 'Defect',
+            'values' => ['Defect', 'Story', 'Spike'],
+        ],
+    ]);
+
+    $svc = app(YouTrackService::class);
+
+    expect($svc->defaultPriority())->toBe('Critical')
+        ->and($svc->priorityValues())->toBe(['Critical', 'Major', 'Normal', 'Minor'])
+        ->and($svc->defaultType())->toBe('Defect')
+        ->and($svc->typeValues())->toBe(['Defect', 'Story', 'Spike']);
+});
+
+it('returns an empty values array when priority/type whitelist is unset', function (): void {
+    config([
+        'youtrack.priorities' => ['default' => 'P3', 'values' => []],
+        'youtrack.types' => ['default' => 'Bug', 'values' => []],
+    ]);
+
+    $svc = app(YouTrackService::class);
+
+    expect($svc->priorityValues())->toBe([])
+        ->and($svc->typeValues())->toBe([]);
+});

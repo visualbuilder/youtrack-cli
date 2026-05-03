@@ -70,6 +70,47 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Issue priorities
+    |--------------------------------------------------------------------------
+    |
+    | YouTrack projects use different priority vocabularies — neurohub uses
+    | P1–P5, others use Critical / Major / Normal / Minor / Trivial, others
+    | use 1–10 numeric. Set whatever your project actually accepts here.
+    |
+    | `default` is what `youtrack:create-issue` and the CreateIssue MCP tool
+    | use when --priority is not explicitly supplied. `values` is an
+    | optional whitelist — when populated, the MCP tool's schema declares
+    | it as an enum so AI agents see the valid options inline.
+    |
+    */
+    'priorities' => [
+        'default' => env('YOUTRACK_PRIORITY_DEFAULT', 'P3'),
+        'values' => array_filter(array_map('trim', explode(
+            ',',
+            (string) env('YOUTRACK_PRIORITIES', 'P1,P2,P3,P4,P5'),
+        ))),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Issue types
+    |--------------------------------------------------------------------------
+    |
+    | Same shape as `priorities`. Hosts that don't use the stock YouTrack
+    | type list (Bug / Feature / Task) override the env or replace the
+    | array. `values = []` means "no enum constraint, accept anything".
+    |
+    */
+    'types' => [
+        'default' => env('YOUTRACK_TYPE_DEFAULT', 'Bug'),
+        'values' => array_filter(array_map('trim', explode(
+            ',',
+            (string) env('YOUTRACK_TYPES', 'Bug,Feature,Task,Epic,Story'),
+        ))),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | HTTP behaviour
     |--------------------------------------------------------------------------
     */
