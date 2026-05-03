@@ -5,63 +5,58 @@ declare(strict_types=1);
 namespace Visualbuilder\YoutrackCli\Console\Commands;
 
 use Throwable;
-use Visualbuilder\YoutrackCli\Services\IssueService;
 
+/**
+ * Verify a YouTrack project carries the custom fields the host relies on.
+ *
+ * Two buckets, both driven by `config('youtrack.fields.*')`:
+ *
+ *   required    — must be present, otherwise `ready` is false and the
+ *                 command exits non-zero. Defaults to YouTrack's stock
+ *                 trio (Status / Priority / Type) — universal across
+ *                 every project.
+ *   recommended — host-specific fields the package benefits from but
+ *                 can degrade without. Empty by default; hosts populate
+ *                 via env (`YOUTRACK_RECOMMENDED_FIELDS=PR URL,Error Count`)
+ *                 or by publishing the config.
+ *
+ * Anything in the project that's outside both buckets surfaces as
+ * `extra_fields` so hosts can spot drift.
+ */
 class CheckProjectCommand extends BaseCommand
 {
     protected $signature = 'youtrack:check-project
                             {--project= : Project short name (defaults to youtrack.default_project)}';
 
-    protected $description = 'Verify a YouTrack project has the custom fields the CLI relies on. Splits results into tier 1 (required), tier 2 (recommended for dev-agent integration), and any extra org-specific fields.';
-
-    /**
-     * Tier 1 — required for any of the list/create/update commands to do
-     * useful work. Missing any of these means the CLI cannot run end-to-end
-     * against the project.
-     *
-     * @var array<int, string>
-     */
-    private const TIER_1_REQUIRED = ['Status', 'Priority', 'Type'];
-
-    /**
-     * Tier 2 — strongly recommended if the project is being driven by
-     * dev-agent or the log monitor. Missing any of these means features
-     * (PR linking, error dedup, routing) silently degrade.
-     *
-     * @var array<int, string>
-     */
-    private const TIER_2_RECOMMENDED = [
-        'PR URL',
-        'Error Count',
-        'System Area',
-        'Requested By',
-        'Linked Initiative',
-    ];
+    protected $description = 'Verify a YouTrack project has the custom fields the host relies on. Buckets results into required / recommended / extras.';
 
     protected function youtrackHandle(): int
     {
         $project = $this->resolveProject();
         $configured = $this->issueService()->getProjectFields($project)->all();
 
-        $tier1Present = array_values(array_intersect(self::TIER_1_REQUIRED, $configured));
-        $tier1Missing = array_values(array_diff(self::TIER_1_REQUIRED, $configured));
-        $tier2Present = array_values(array_intersect(self::TIER_2_RECOMMENDED, $configured));
-        $tier2Missing = array_values(array_diff(self::TIER_2_RECOMMENDED, $configured));
+        $required = $this->configuredFields('required');
+        $recommended = $this->configuredFields('recommended');
 
-        $known = array_merge(self::TIER_1_REQUIRED, self::TIER_2_RECOMMENDED);
+        $requiredPresent = array_values(array_intersect($required, $configured));
+        $requiredMissing = array_values(array_diff($required, $configured));
+        $recommendedPresent = array_values(array_intersect($recommended, $configured));
+        $recommendedMissing = array_values(array_diff($recommended, $configured));
+
+        $known = array_merge($required, $recommended);
         $extras = array_values(array_diff($configured, $known));
-        $ready = $tier1Missing === [];
+        $ready = $requiredMissing === [];
 
         $this->emitJson([
             'project' => $project,
             'ready' => $ready,
-            'tier_1' => [
-                'configured' => $tier1Present,
-                'missing' => $tier1Missing,
+            'required' => [
+                'configured' => $requiredPresent,
+                'missing' => $requiredMissing,
             ],
-            'tier_2' => [
-                'configured' => $tier2Present,
-                'missing' => $tier2Missing,
+            'recommended' => [
+                'configured' => $recommendedPresent,
+                'missing' => $recommendedMissing,
             ],
             'extra_fields' => $extras,
             'all_fields' => $configured,
@@ -80,5 +75,15 @@ class CheckProjectCommand extends BaseCommand
     private function resolveProject(): string
     {
         return (string) ($this->option('project') ?: config('youtrack.default_project', 'NB'));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function configuredFields(string $bucket): array
+    {
+        $values = config("youtrack.fields.{$bucket}", []);
+
+        return is_array($values) ? array_values(array_filter(array_map('strval', $values))) : [];
     }
 }

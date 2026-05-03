@@ -170,7 +170,12 @@ it('BulkSearchFingerprints rejects non-array fingerprints input', function (): v
         ->isError())->toBeTrue();
 });
 
-it('CheckProject reads admin/projects/{id} and tiers the configured fields', function (): void {
+it('CheckProject reads admin/projects/{id} and buckets fields by required/recommended/extras', function (): void {
+    config([
+        'youtrack.fields.required' => ['Status', 'Priority', 'Type'],
+        'youtrack.fields.recommended' => ['PR URL', 'Error Count'],
+    ]);
+
     Http::fake(['*/admin/projects/NB*' => Http::response([
         'shortName' => 'NB',
         'customFields' => [
@@ -187,7 +192,8 @@ it('CheckProject reads admin/projects/{id} and tiers the configured fields', fun
     expect($payload)->toMatchArray([
         'project' => 'NB',
         'ready' => true,
-    ])->and($payload['tier_2']['configured'])->toBe(['PR URL'])
+    ])->and($payload['recommended']['configured'])->toBe(['PR URL'])
+        ->and($payload['recommended']['missing'])->toBe(['Error Count'])
         ->and($payload['extra_fields'])->toBe(['Org-Specific']);
 });
 

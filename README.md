@@ -93,11 +93,11 @@ Subscribe to `Visualbuilder\YoutrackCli\Events\YoutrackWebhookReceived` from the
 
 ## YouTrack project setup
 
-The CLI reads YouTrack custom fields by exact name. Fields fall into three tiers — only tier 1 is mandatory for the basic commands to work.
+The CLI reads YouTrack custom fields by exact name. Two configurable buckets:
 
-### Tier 1 — required
+### Required fields (stock YouTrack defaults)
 
-The CLI cannot do useful work without these. They are stock YouTrack defaults — every project ships with them.
+The CLI cannot do useful work without these. They're shipped with every YouTrack project — nothing to configure unless your project has been customised.
 
 | What we call it | YouTrack custom field | YouTrack type | Used by |
 |---|---|---|---|
@@ -105,40 +105,41 @@ The CLI cannot do useful work without these. They are stock YouTrack defaults �
 | **priority** | `Priority` | enum (single) | `create-issue --priority=P3`, normalised `priority` key |
 | **type** | `Type` | enum (single) | `create-issue --type=Bug`, normalised `type` key |
 
-YouTrack's `state` type is workflow-aware — its values are the kanban columns of the project. Tier 1 uses YouTrack's stock field set, so a fresh project ships ready out of the box.
-
 > "state" vs "Status" — we picked **state** as the public-surface name (it's the standard term in workflow engines), but on the wire the package reads/writes YouTrack's `Status` custom field. They mean the same thing: the column a ticket sits in on your kanban board.
 
-### Tier 2 — recommended for `dev-agent` / log-monitor integration
+If your project diverges (some YouTrack tenants enforce additional required fields), extend the list:
 
-Strongly recommended if you're driving the project with `dev-agent` or the production log monitor. Missing any of these makes features silently degrade rather than fail.
+```dotenv
+YOUTRACK_REQUIRED_FIELDS=Status,Priority,Type,Severity
+```
 
-| Field | YouTrack type | What uses it |
+### Recommended fields (host-specific)
+
+Empty by default — populate with whatever fields your workflow expects beyond the stock trio. Examples from the agentic ecosystem this package was extracted from:
+
+```dotenv
+YOUTRACK_RECOMMENDED_FIELDS=PR URL,Error Count,System Area,Requested By
+```
+
+| Example field | YouTrack type | What it'd be for |
 |---|---|---|
-| `PR URL` | string | dev-agent saves the GitHub PR URL after opening it: `youtrack:set-field NB-X "PR URL" "https://..."` |
-| `Error Count` | integer | log monitor stores how many production-error occurrences a fingerprint has seen |
-| `System Area` | enum (single) | optional routing — which subsystem the issue concerns |
-| `Requested By` | string | optional — who in the company asked for it |
-| `Linked Initiative` | enum (single) | optional — links a ticket to a higher-level OKR / project |
+| `PR URL` | string | a `dev-agent` saving the GitHub PR URL after opening it |
+| `Error Count` | integer | a log monitor storing occurrence counts per error fingerprint |
+| `System Area` | enum (single) | routing tickets to subsystems |
 
-Add these in **Project Settings → Fields** in the YouTrack UI. The CLI doesn't care about types beyond what each command sends, so plain strings work where you don't need an enum.
+Add these in **Project Settings → Fields** in the YouTrack UI. They're optional — `youtrack:check-project` reports them as `recommended.missing` rather than failing.
 
-### Tier 3 — anything else
+### Anything else
 
-The package doesn't hard-code field names beyond tier 1. Custom fields specific to your org work transparently:
+Custom fields not in either list still work transparently — `get-issue` returns the full untouched `custom_fields` map, and `set-field` writes any field by exact name:
 
 ```bash
-# Read every custom field on a ticket — `custom_fields` in the JSON output
-# carries the full untouched map.
-php artisan youtrack:get-issue NB-123
-
-# Write any field by exact name — works for stock + custom.
 php artisan youtrack:set-field NB-123 "QA Approval" "Verified by Hugo"
 ```
 
 ### Verifying your setup
 
-Run the doctor command after configuring the project — it lists every custom field and splits them into tiers, returning exit code `0` when tier 1 is complete and `1` when something required is missing.
+Run the doctor command after configuring the project — it returns exit code `0` when every required field is present and `1` when something's missing.
 
 ```bash
 php artisan youtrack:check-project --project=NB
@@ -148,13 +149,13 @@ php artisan youtrack:check-project --project=NB
 {
     "project": "NB",
     "ready": true,
-    "tier_1": {
+    "required": {
         "configured": ["Status", "Priority", "Type"],
         "missing": []
     },
-    "tier_2": {
+    "recommended": {
         "configured": ["PR URL"],
-        "missing": ["Error Count", "System Area", "Requested By", "Linked Initiative"]
+        "missing": ["Error Count"]
     },
     "extra_fields": ["Custom Org Field"],
     "all_fields": ["Status", "Priority", "Type", "PR URL", "Custom Org Field"]

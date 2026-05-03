@@ -23,9 +23,13 @@ function fakeProjectPayload(string $shortName, array $fieldNames): array
     ];
 }
 
-it('returns ready=true with all tier-1 fields configured', function (): void {
+it('returns ready=true with stock required fields configured', function (): void {
+    // No host-recommended fields — covers the "out of the box, just stock
+    // YouTrack" case where everything required is present.
+    config(['youtrack.fields.recommended' => []]);
+
     Http::fake(['*/admin/projects/NB*' => Http::response(
-        fakeProjectPayload('NB', ['Status', 'Priority', 'Type', 'PR URL'])
+        fakeProjectPayload('NB', ['Status', 'Priority', 'Type'])
     )]);
 
     expect(Artisan::call('youtrack:check-project', ['--project' => 'NB']))->toBe(0);
@@ -35,14 +39,31 @@ it('returns ready=true with all tier-1 fields configured', function (): void {
     expect($payload)->toMatchArray([
         'project' => 'NB',
         'ready' => true,
-    ])->and($payload['tier_1']['missing'])->toBe([])
-        ->and($payload['tier_2']['configured'])->toBe(['PR URL'])
-        ->and($payload['tier_2']['missing'])->toContain('Error Count');
+    ])->and($payload['required']['missing'])->toBe([])
+        ->and($payload['recommended']['configured'])->toBe([])
+        ->and($payload['recommended']['missing'])->toBe([]);
 });
 
-it('returns ready=false and exit-code 1 when a tier-1 field is missing', function (): void {
+it('reports configured + missing host-recommended fields', function (): void {
+    config([
+        'youtrack.fields.recommended' => ['PR URL', 'Error Count', 'System Area'],
+    ]);
+
     Http::fake(['*/admin/projects/NB*' => Http::response(
-        // Missing Type — only Status and Priority configured.
+        fakeProjectPayload('NB', ['Status', 'Priority', 'Type', 'PR URL'])
+    )]);
+
+    Artisan::call('youtrack:check-project', ['--project' => 'NB']);
+
+    $payload = json_decode(trim(Artisan::output()), true);
+
+    expect($payload['recommended']['configured'])->toBe(['PR URL'])
+        ->and($payload['recommended']['missing'])->toBe(['Error Count', 'System Area']);
+});
+
+it('returns ready=false and exit-code 1 when a required field is missing', function (): void {
+    Http::fake(['*/admin/projects/NB*' => Http::response(
+        // Type missing — only Status and Priority configured.
         fakeProjectPayload('NB', ['Status', 'Priority'])
     )]);
 
@@ -51,12 +72,14 @@ it('returns ready=false and exit-code 1 when a tier-1 field is missing', functio
     $payload = json_decode(trim(Artisan::output()), true);
 
     expect($payload['ready'])->toBeFalse()
-        ->and($payload['tier_1']['missing'])->toBe(['Type']);
+        ->and($payload['required']['missing'])->toBe(['Type']);
 });
 
-it('lists fields the package does not know about as extra_fields', function (): void {
+it('lists fields outside both buckets as extra_fields', function (): void {
+    config(['youtrack.fields.recommended' => ['PR URL']]);
+
     Http::fake(['*/admin/projects/NB*' => Http::response(
-        fakeProjectPayload('NB', ['Status', 'Priority', 'Type', 'Pet Project Sponsor'])
+        fakeProjectPayload('NB', ['Status', 'Priority', 'Type', 'PR URL', 'Pet Project Sponsor'])
     )]);
 
     Artisan::call('youtrack:check-project', ['--project' => 'NB']);
@@ -64,6 +87,26 @@ it('lists fields the package does not know about as extra_fields', function (): 
     $payload = json_decode(trim(Artisan::output()), true);
 
     expect($payload['extra_fields'])->toBe(['Pet Project Sponsor']);
+});
+
+it('honours custom required-field overrides', function (): void {
+    // Hosts whose YouTrack project requires extra fields beyond Status /
+    // Priority / Type can extend the `required` list. Not contrived — some
+    // tenants enforce custom fields per project policy.
+    config([
+        'youtrack.fields.required' => ['Status', 'Priority', 'Type', 'Severity'],
+        'youtrack.fields.recommended' => [],
+    ]);
+
+    Http::fake(['*/admin/projects/NB*' => Http::response(
+        fakeProjectPayload('NB', ['Status', 'Priority', 'Type'])  // no Severity
+    )]);
+
+    expect(Artisan::call('youtrack:check-project', ['--project' => 'NB']))->toBe(1);
+
+    $payload = json_decode(trim(Artisan::output()), true);
+
+    expect($payload['required']['missing'])->toBe(['Severity']);
 });
 
 it('reports an error when the project is not found', function (): void {

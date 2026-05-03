@@ -96,6 +96,35 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Project field expectations
+    |--------------------------------------------------------------------------
+    |
+    | Used by `youtrack:check-project` and the CheckProject MCP tool to
+    | verify a YouTrack project carries the custom fields the host relies on.
+    |
+    | `required` — fields whose absence stops the package from doing useful
+    | work. Defaults to YouTrack's stock trio (Status / Priority / Type),
+    | which every project ships with out of the box.
+    |
+    | `recommended` — host-specific fields the package benefits from but
+    | can degrade without (e.g. `PR URL` for dev-agent integration,
+    | custom error-count fields for log monitors). Empty by default;
+    | populate to your project via env or by publishing the config.
+    |
+    */
+    'fields' => [
+        'required' => array_filter(array_map('trim', explode(
+            ',',
+            (string) env('YOUTRACK_REQUIRED_FIELDS', 'Status,Priority,Type'),
+        ))),
+        'recommended' => array_filter(array_map('trim', explode(
+            ',',
+            (string) env('YOUTRACK_RECOMMENDED_FIELDS', ''),
+        ))),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | HTTP behaviour
     |--------------------------------------------------------------------------
     */

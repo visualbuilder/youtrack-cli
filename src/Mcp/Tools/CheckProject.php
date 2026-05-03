@@ -12,15 +12,18 @@ use Laravel\Mcp\Server\Tool;
 use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 use Visualbuilder\YoutrackCli\Mcp\Tools\Concerns\ResolvesIssueService;
 
-#[Description('Verify a YouTrack project has the custom fields the package relies on. Returns tier-1 (required), tier-2 (recommended) and unknown extra fields.')]
+/**
+ * Verify a YouTrack project carries the fields the host expects. Both
+ * buckets (required + recommended) come from `config('youtrack.fields.*')`,
+ * so hosts customise without forking — neurohub adds `PR URL`,
+ * `Error Count`, etc. via `YOUTRACK_RECOMMENDED_FIELDS`; other hosts list
+ * whatever their workflow needs.
+ */
+#[Description('Verify a YouTrack project has the custom fields the host expects. Buckets results into required (default: stock Status/Priority/Type), recommended (host-configured), and extras (unknown to either list).')]
 #[IsReadOnly]
 class CheckProject extends Tool
 {
     use ResolvesIssueService;
-
-    private const TIER_1 = ['Status', 'Priority', 'Type'];
-
-    private const TIER_2 = ['PR URL', 'Error Count', 'System Area', 'Requested By', 'Linked Initiative'];
 
     public function handle(Request $request): Response
     {
@@ -28,20 +31,23 @@ class CheckProject extends Tool
 
         $configured = $this->service($request)->getProjectFields($project)->all();
 
-        $tier1Missing = array_values(array_diff(self::TIER_1, $configured));
-        $tier2Missing = array_values(array_diff(self::TIER_2, $configured));
-        $extras = array_values(array_diff($configured, [...self::TIER_1, ...self::TIER_2]));
+        $required = $this->fields('required');
+        $recommended = $this->fields('recommended');
+
+        $requiredMissing = array_values(array_diff($required, $configured));
+        $recommendedMissing = array_values(array_diff($recommended, $configured));
+        $extras = array_values(array_diff($configured, [...$required, ...$recommended]));
 
         return Response::json([
             'project' => $project,
-            'ready' => $tier1Missing === [],
-            'tier_1' => [
-                'configured' => array_values(array_intersect(self::TIER_1, $configured)),
-                'missing' => $tier1Missing,
+            'ready' => $requiredMissing === [],
+            'required' => [
+                'configured' => array_values(array_intersect($required, $configured)),
+                'missing' => $requiredMissing,
             ],
-            'tier_2' => [
-                'configured' => array_values(array_intersect(self::TIER_2, $configured)),
-                'missing' => $tier2Missing,
+            'recommended' => [
+                'configured' => array_values(array_intersect($recommended, $configured)),
+                'missing' => $recommendedMissing,
             ],
             'extra_fields' => $extras,
         ]);
@@ -53,5 +59,15 @@ class CheckProject extends Tool
             'project' => $schema->string()->description('Project shortname (defaults to config default).'),
             'instance' => $schema->string()->description('Named YouTrack connection.'),
         ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function fields(string $bucket): array
+    {
+        $values = config("youtrack.fields.{$bucket}", []);
+
+        return is_array($values) ? array_values(array_filter(array_map('strval', $values))) : [];
     }
 }
