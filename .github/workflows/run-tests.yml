@@ -1,0 +1,46 @@
+name: run-tests
+
+on: [push, pull_request]
+
+jobs:
+    tests:
+        runs-on: ${{ matrix.os }}
+        strategy:
+            fail-fast: false
+            matrix:
+                os: [ubuntu-latest]
+                php: [8.3, 8.4]
+                laravel: [11.*, 12.*]
+                stability: [prefer-stable]
+                dependency-version: [prefer-stable]
+                include:
+                    -   laravel: 11.*
+                        testbench: 9.*
+                    -   laravel: 12.*
+                        testbench: 10.*
+
+        name: P${{ matrix.php }} - L${{ matrix.laravel }} - ${{ matrix.stability }}
+
+        steps:
+            -   name: Checkout code
+                uses: actions/checkout@v5
+
+            -   name: Setup PHP
+                uses: shivammathur/setup-php@v2
+                with:
+                    php-version: ${{ matrix.php }}
+                    extensions: curl, mbstring, zip, dom, simplexml, iconv
+                    coverage: none
+
+            -   name: Install dependencies
+                run: |
+                    composer require "laravel/framework:${{ matrix.laravel }}" "orchestra/testbench:${{ matrix.testbench }}" --no-interaction --no-update
+                    composer update --${{ matrix.stability }} --prefer-dist --no-interaction
+
+            -   name: Setup Problem Matchers
+                run: |
+                    echo "::add-matcher::${{ runner.tool_cache }}/php.json"
+                    echo "::add-matcher::${{ runner.tool_cache }}/phpunit.json"
+
+            -   name: Execute tests
+                run: vendor/bin/pest
