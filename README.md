@@ -1,5 +1,10 @@
 # YouTrack CLI
 
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/visualbuilder/youtrack-cli.svg?style=flat-square)](https://packagist.org/packages/visualbuilder/youtrack-cli)
+![Packagist Downloads](https://img.shields.io/packagist/dt/visualbuilder/youtrack-cli)
+[![run-tests](https://github.com/visualbuilder/youtrack-cli/actions/workflows/run-tests.yml/badge.svg)](https://github.com/visualbuilder/youtrack-cli/actions/workflows/run-tests.yml)
+![GitHub last commit](https://img.shields.io/github/last-commit/visualbuilder/youtrack-cli)
+
 Laravel artisan commands, MCP tools, and a webhook receiver for driving YouTrack issue workflows from terminals, scripts, and AI agents.
 
 20 commands, 20 MCP tools, structured-error JSON envelopes, multi-instance config, signed-webhook receiver. Designed to be the source of truth any consumer (coding agent, CI pipeline, developer's terminal, MCP-aware IDE, slash command) can call.
