@@ -50,13 +50,12 @@ YOUTRACK_TYPES=Defect,Story,Spike,Epic
 
 The `values` arrays drive the `CreateIssue` MCP tool's JSON-schema enums, so AI agents see exactly which values your YouTrack project accepts. Leave a list empty to disable the constraint and fall back to "anything goes".
 
-### Multi-instance
+### Multi-workspace
 
-Hosts that talk to several YouTrack workspaces at once can define them under `youtrack.connections` and pick one per call:
+Talking to more than one YouTrack workspace? Add another entry under `youtrack.connections`:
 
 ```php
 // config/youtrack.php
-'default_connection' => 'default',
 'connections' => [
     'default' => [
         'base_url' => env('YOUTRACK_BASE_URL'),
@@ -71,9 +70,7 @@ Hosts that talk to several YouTrack workspaces at once can define them under `yo
 ],
 ```
 
-Every artisan command accepts `--instance=NAME`; programmatic callers use `(new YouTrackService())->on('support')` or `app(IssueService::class)->on('support')`.
-
-The legacy top-level `youtrack.base_url` / `youtrack.token` keys keep working forever as the implicit `default` connection — no migration required.
+Every artisan command accepts `--instance=NAME`; programmatic callers use `(new YouTrackService())->on('support')` or `app(IssueService::class)->on('support')`. Single-workspace hosts only need the `default` entry.
 
 ### MCP server (optional)
 

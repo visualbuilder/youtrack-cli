@@ -5,39 +5,24 @@ declare(strict_types=1);
 return [
     /*
     |--------------------------------------------------------------------------
-    | YouTrack workspace credentials (legacy, single-instance)
+    | YouTrack workspaces
     |--------------------------------------------------------------------------
     |
-    | Hosts that talk to a single YouTrack workspace can keep using these
-    | top-level keys forever — they're treated as the implicit `default`
-    | connection by the YouTrackService resolver. No migration ever required.
-    |
-    */
-    'base_url' => env('YOUTRACK_BASE_URL'),
-    'token' => env('YOUTRACK_TOKEN'),
-    'default_project' => env('YOUTRACK_DEFAULT_PROJECT', 'NB'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Multi-instance connections
-    |--------------------------------------------------------------------------
-    |
-    | Define one entry per YouTrack workspace the host wants to talk to.
-    | Commands accept `--instance=NAME` to pick one; programmatic callers can
-    | use `(new YouTrackService())->on('staging')` to scope a one-off call.
-    |
-    | If you only have one workspace, leave this empty and rely on the
-    | top-level keys above.
+    | One entry under `connections` per YouTrack workspace the host wants
+    | to talk to. Single-instance hosts only need the `default` entry; any
+    | additional workspaces (staging, support, etc.) get their own keys
+    | and are picked at call-time via `--instance=NAME` on commands or
+    | `(new YouTrackService())->on('staging')` programmatically.
     |
     */
     'default_connection' => env('YOUTRACK_CONNECTION', 'default'),
 
     'connections' => [
-        // 'default' => [
-        //     'base_url' => env('YOUTRACK_BASE_URL'),
-        //     'token' => env('YOUTRACK_TOKEN'),
-        //     'default_project' => env('YOUTRACK_DEFAULT_PROJECT', 'NB'),
-        // ],
+        'default' => [
+            'base_url' => env('YOUTRACK_BASE_URL'),
+            'token' => env('YOUTRACK_TOKEN'),
+            'default_project' => env('YOUTRACK_DEFAULT_PROJECT', 'NB'),
+        ],
         // 'support' => [
         //     'base_url' => env('YOUTRACK_SUPPORT_BASE_URL'),
         //     'token' => env('YOUTRACK_SUPPORT_TOKEN'),
@@ -73,12 +58,12 @@ return [
     | Issue priorities
     |--------------------------------------------------------------------------
     |
-    | YouTrack projects use different priority vocabularies — neurohub uses
-    | P1–P5, others use Critical / Major / Normal / Minor / Trivial, others
+    | YouTrack projects use different priority vocabularies — some use
+    | P1–P5, some use Critical / Major / Normal / Minor / Trivial, others
     | use 1–10 numeric. Set whatever your project actually accepts here.
     |
-    | `default` is what `youtrack:create-issue` and the CreateIssue MCP tool
-    | use when --priority is not explicitly supplied. `values` is an
+    | `default` is what `youtrack:create-issue` and the CreateIssue MCP
+    | tool use when --priority is not explicitly supplied. `values` is an
     | optional whitelist — when populated, the MCP tool's schema declares
     | it as an enum so AI agents see the valid options inline.
     |
@@ -96,9 +81,9 @@ return [
     | Issue types
     |--------------------------------------------------------------------------
     |
-    | Same shape as `priorities`. Hosts that don't use the stock YouTrack
-    | type list (Bug / Feature / Task) override the env or replace the
-    | array. `values = []` means "no enum constraint, accept anything".
+    | Same shape as `priorities`. Override the env or replace the array if
+    | your project doesn't use the stock YouTrack type list. Set `values`
+    | to an empty array to disable the enum constraint.
     |
     */
     'types' => [

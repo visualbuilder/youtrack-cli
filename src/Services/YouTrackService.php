@@ -11,11 +11,10 @@ use RuntimeException;
 /**
  * Base service for YouTrack API integration.
  *
- * Multi-instance: the package supports a `youtrack.connections.NAME` map
- * so a single host can talk to several YouTrack workspaces. Hosts that
- * still use the legacy top-level `youtrack.base_url` / `youtrack.token`
- * keys keep working — the resolver falls back to those as the implicit
- * `default` connection (no migration required, ever).
+ * Credentials live under `youtrack.connections.NAME`. The `default`
+ * connection is enough for single-workspace hosts; add more entries for
+ * multi-workspace setups. Pick at call-time via `--instance=NAME` on
+ * commands or `(new YouTrackService())->on('staging')` programmatically.
  */
 class YouTrackService
 {
@@ -68,7 +67,7 @@ class YouTrackService
 
     public function baseUrl(): string
     {
-        $url = $this->connectionConfig('base_url') ?? config('youtrack.base_url');
+        $url = $this->connectionConfig('base_url');
 
         if (! $url) {
             throw new RuntimeException("YouTrack base URL is not configured for connection '{$this->connection}'.");
@@ -79,10 +78,7 @@ class YouTrackService
 
     public function defaultProject(): string
     {
-        return (string) (
-            $this->connectionConfig('default_project')
-            ?? config('youtrack.default_project', 'NB')
-        );
+        return (string) ($this->connectionConfig('default_project') ?? 'NB');
     }
 
     /**
@@ -146,23 +142,20 @@ class YouTrackService
 
     protected function hasCredentials(): bool
     {
-        $base = $this->connectionConfig('base_url') ?? config('youtrack.base_url');
-        $token = $this->connectionConfig('token') ?? config('youtrack.token');
-
-        return ! empty($base) && ! empty($token);
+        return ! empty($this->connectionConfig('base_url'))
+            && ! empty($this->connectionConfig('token'));
     }
 
     protected function token(): ?string
     {
-        $value = $this->connectionConfig('token') ?? config('youtrack.token');
+        $value = $this->connectionConfig('token');
 
         return $value === null ? null : (string) $value;
     }
 
     /**
      * Read a per-connection config key. Returns null if the connection
-     * isn't defined or the key is missing — callers fall back to the
-     * top-level `youtrack.*` shim.
+     * isn't defined or the key is missing.
      */
     protected function connectionConfig(string $key): mixed
     {

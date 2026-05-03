@@ -21,8 +21,10 @@ abstract class TestCase extends Orchestra
      */
     protected function defineEnvironment($app): void
     {
-        $app['config']->set('youtrack.base_url', 'https://example.youtrack.cloud');
-        $app['config']->set('youtrack.token', 'perm:test-token');
-        $app['config']->set('youtrack.default_project', 'NB');
+        $app['config']->set('youtrack.connections.default', [
+            'base_url' => 'https://example.youtrack.cloud',
+            'token' => 'perm:test-token',
+            'default_project' => 'NB',
+        ]);
     }
 }

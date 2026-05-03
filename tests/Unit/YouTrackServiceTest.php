@@ -19,14 +19,14 @@ it('reports as enabled when both base URL and token are set', function (): void 
     expect(app(YouTrackService::class)->isEnabled())->toBeTrue();
 });
 
-it('throws when no base URL is configured', function (): void {
-    config(['youtrack.base_url' => null]);
+it('throws when the active connection has no base URL configured', function (): void {
+    config(['youtrack.connections.default.base_url' => null]);
 
     app(YouTrackService::class)->baseUrl();
 })->throws(RuntimeException::class, 'YouTrack base URL is not configured');
 
-it('throws when no token is configured and the http client is requested', function (): void {
-    config(['youtrack.token' => null]);
+it('throws when the active connection has no token configured', function (): void {
+    config(['youtrack.connections.default.token' => null]);
 
     app(YouTrackService::class)->http();
 })->throws(RuntimeException::class, "connection 'default' is not configured");
@@ -57,12 +57,13 @@ it('routes per-connection credentials when --instance picks a non-default worksp
         ->and($support->connectionName())->toBe('support');
 });
 
-it('falls back to the legacy top-level base_url/token shim for the default connection', function (): void {
-    // Top-level keys only — no `youtrack.connections.default` configured.
-    // Resolver should still find the credentials via the shim.
-    expect(app(\Visualbuilder\YoutrackCli\Services\YouTrackService::class)->baseUrl())
-        ->toBe('https://example.youtrack.cloud/api');
-});
+it('refuses to build an http client when the active connection has no credentials', function (): void {
+    // Wipe the test default — the resolver should fail loudly, not silently
+    // pick up some other set of keys, when the named connection is missing.
+    config(['youtrack.connections' => []]);
+
+    app(\Visualbuilder\YoutrackCli\Services\YouTrackService::class)->http();
+})->throws(RuntimeException::class, "connection 'default' is not configured");
 
 it('resolves state names from config with a fallback', function (): void {
     config(['youtrack.states.ready' => 'Ready for Dev']);
