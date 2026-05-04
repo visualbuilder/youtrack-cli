@@ -437,6 +437,54 @@ class IssueService
     }
 
     /**
+     * Attach a file (typically a screenshot) to an issue.
+     *
+     * Uses YouTrack's multipart/form-data endpoint at
+     * `/issues/{id}/attachments`. The wrapped Http client otherwise
+     * sends application/json, so we strip its asJson() framing and
+     * use ->attach() to send the binary payload.
+     *
+     * @param  string  $issueId  Issue ID (e.g., NB-2509)
+     * @param  string  $filePath  Absolute or working-dir-relative path to the file
+     * @param  string|null  $displayName  Override the displayed filename in YouTrack (defaults to basename)
+     * @return array{issue_id: string, attachment_id: string|null, name: string, success: true}
+     */
+    public function attachFile(string $issueId, string $filePath, ?string $displayName = null): array
+    {
+        if (! is_file($filePath) || ! is_readable($filePath)) {
+            throw new RuntimeException("Attachment not found or unreadable: {$filePath}");
+        }
+
+        $name = $displayName ?: basename($filePath);
+
+        // Use httpMultipart() rather than http() — the latter hardcodes
+        // asJson() (Content-Type: application/json), which YouTrack
+        // rejects with "Unexpected character ('-')" when it tries to
+        // parse the multipart boundary as JSON.
+        $response = $this->youTrack->httpMultipart()
+            ->attach('upload', file_get_contents($filePath), $name)
+            ->post("issues/{$issueId}/attachments?fields=id,name,url");
+
+        if ($response->failed()) {
+            throw new RuntimeException(
+                "Failed to attach {$name} to {$issueId}: {$response->status()} - {$response->body()}"
+            );
+        }
+
+        // YouTrack returns either a single object or an array of attachments
+        // depending on whether one or multiple files were posted.
+        $data = $response->json();
+        $first = isset($data[0]) ? $data[0] : $data;
+
+        return [
+            'issue_id' => $issueId,
+            'attachment_id' => $first['id'] ?? null,
+            'name' => $first['name'] ?? $name,
+            'success' => true,
+        ];
+    }
+
+    /**
      * Set a custom field value on an issue.
      *
      * @param  string  $issueId  Issue ID

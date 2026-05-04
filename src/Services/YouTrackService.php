@@ -65,6 +65,27 @@ class YouTrackService
         return $request;
     }
 
+    /**
+     * Multipart-ready PendingRequest for endpoints that take file
+     * uploads (e.g. /issues/{id}/attachments). Mirrors http()'s
+     * connection / auth / timeout setup but skips asJson() — the
+     * caller chains ->attach(...) and the body format defaults to
+     * multipart on first attach() call.
+     */
+    public function httpMultipart(): PendingRequest
+    {
+        if (! $this->hasCredentials()) {
+            throw new RuntimeException("YouTrack connection '{$this->connection}' is not configured.");
+        }
+
+        $timeout = max(30, (int) config('youtrack.http_timeout', 30));
+
+        return Http::baseUrl($this->baseUrl())
+            ->timeout($timeout)
+            ->withToken($this->token(), 'Bearer')
+            ->acceptJson();
+    }
+
     public function baseUrl(): string
     {
         $url = $this->connectionConfig('base_url');

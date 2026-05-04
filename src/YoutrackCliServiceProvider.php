@@ -8,6 +8,7 @@ use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 use Visualbuilder\YoutrackCli\Console\Commands\AddCommentCommand;
 use Visualbuilder\YoutrackCli\Console\Commands\AssignCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\AttachFileCommand;
 use Visualbuilder\YoutrackCli\Console\Commands\BulkSearchFingerprintsCommand;
 use Visualbuilder\YoutrackCli\Console\Commands\CheckProjectCommand;
 use Visualbuilder\YoutrackCli\Console\Commands\CreateIssueCommand;
@@ -37,6 +38,7 @@ class YoutrackCliServiceProvider extends PackageServiceProvider
             ->hasCommands([
                 AddCommentCommand::class,
                 AssignCommand::class,
+                AttachFileCommand::class,
                 BulkSearchFingerprintsCommand::class,
                 CheckProjectCommand::class,
                 CreateIssueCommand::class,
