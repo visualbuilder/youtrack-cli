@@ -684,7 +684,10 @@ class IssueService
         // OR groups via the leading `#`-style — bare OR works inside a
         // project scope.
         $escaped = $this->escapeQuery($query);
-        $fullQuery = "project: {$project} (summary: {$escaped} or description: {$escaped})";
+        // YouTrack's YQL parser rejects an implicit AND between a project
+        // scope and a parenthesised OR group ("invalid_query"). The
+        // explicit `and` makes it accept the query.
+        $fullQuery = "project: {$project} and (summary: {$escaped} or description: {$escaped})";
 
         $response = $this->youTrack->http()->get('issues', [
             'query' => $fullQuery,
@@ -719,12 +722,27 @@ class IssueService
             return [];
         }
 
+        // Validate fingerprints — they're embedded into the YouTrack YQL
+        // string un-escaped (YouTrack's literal `{...}` syntax doesn't
+        // play well with our escaper). Restricting them to hex avoids
+        // any chance of YQL injection from upstream callers.
+        foreach ($fingerprints as $fp) {
+            if (! preg_match('/^[a-f0-9]{8,64}$/i', $fp)) {
+                throw new \InvalidArgumentException(
+                    "Invalid fingerprint format: must be hex (8–64 chars). Got: {$fp}"
+                );
+            }
+        }
+
         // Build OR query: (description: {error-fp:aaa} or description: {error-fp:bbb} or ...)
         $orClauses = array_map(
             fn (string $fp) => "description: {error-fp:{$fp}}",
             $fingerprints
         );
-        $fullQuery = "project: {$project} (" . implode(' or ', $orClauses) . ')';
+        // YouTrack's YQL parser rejects an implicit AND between a project
+        // scope and a parenthesised OR group ("invalid_query"). The
+        // explicit `and` makes it accept the query.
+        $fullQuery = "project: {$project} and (" . implode(' or ', $orClauses) . ')';
 
         $response = $this->youTrack->http()->get('issues', [
             'query' => $fullQuery,
