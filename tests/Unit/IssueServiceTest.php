@@ -231,17 +231,46 @@ it('assignIssue clears the Assignee field when login is null', function (): void
     );
 });
 
-it('addTag posts the tag name to the issue tags endpoint', function (): void {
-    Http::fake(['*/issues/NB-1/tags*' => Http::response(['id' => 't-1', 'name' => 'visual-regression'])]);
+it('addTag attaches an existing tag to the issue by id', function (): void {
+    Http::fake([
+        '*/api/tags*' => Http::response([
+            ['id' => 't-7', 'name' => 'visual-regression'],
+            ['id' => 't-9', 'name' => 'other'],
+        ]),
+        '*/issues/NB-1/tags*' => Http::response(['id' => 't-7', 'name' => 'visual-regression']),
+    ]);
 
     $result = app(IssueService::class)->addTag('NB-1', 'visual-regression');
 
-    expect($result)->toMatchArray(['success' => true, 'action' => 'added', 'tag' => 'visual-regression']);
+    expect($result)->toMatchArray(['success' => true, 'action' => 'added', 'tag' => 'visual-regression', 'tag_id' => 't-7']);
 
     Http::assertSent(static fn ($request): bool =>
         $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/issues/NB-1/tags')
-        && $request->data()['name'] === 'visual-regression'
+        && $request->data()['id'] === 't-7'
+    );
+});
+
+it('addTag creates the tag first when it does not exist, then attaches it', function (): void {
+    Http::fakeSequence()
+        ->push([])                                              // GET tags — none match
+        ->push(['id' => 't-42', 'name' => 'screenshot-review']) // POST tags — created
+        ->push(['id' => 't-42', 'name' => 'screenshot-review']); // POST issue tags — attached
+
+    $result = app(IssueService::class)->addTag('NB-1', 'screenshot-review');
+
+    expect($result['tag_id'])->toBe('t-42');
+
+    Http::assertSent(static fn ($request): bool =>
+        $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/tags')
+        && $request->data()['name'] === 'screenshot-review'
+    );
+
+    Http::assertSent(static fn ($request): bool =>
+        $request->method() === 'POST'
+        && str_ends_with($request->url(), '/api/issues/NB-1/tags')
+        && $request->data()['id'] === 't-42'
     );
 });
 

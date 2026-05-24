@@ -253,15 +253,22 @@ class IssueService
     }
 
     /**
-     * Add a tag to an issue. YouTrack creates the tag if it doesn't exist
-     * (subject to project permissions).
+     * Add a tag to an issue.
+     *
+     * YouTrack's `POST issues/{id}/tags` endpoint *attaches an existing tag*
+     * and resolves it by `id` only — posting `{name}` fails with HTTP 400
+     * ("unable to locate a Tag-type entity unless its ID is also provided").
+     * So we resolve the tag's id by name first, creating the tag (via
+     * `POST tags`) when it doesn't yet exist, then attach it by id.
      *
      * @return array<string, mixed>
      */
     public function addTag(string $issueId, string $tag): array
     {
+        $tagId = $this->resolveOrCreateTagId($tag);
+
         $response = $this->youTrack->http()->post("issues/{$issueId}/tags", [
-            'name' => $tag,
+            'id' => $tagId,
         ]);
 
         if ($response->failed()) {
@@ -273,9 +280,53 @@ class IssueService
         return [
             'issue_id' => $issueId,
             'tag' => $tag,
+            'tag_id' => $tagId,
             'action' => 'added',
             'success' => true,
         ];
+    }
+
+    /**
+     * Resolve an existing tag's id by name, creating the tag when absent.
+     * YouTrack scopes `GET tags` to tags visible to the authenticated user,
+     * so a freshly created tag is owned by that user and reusable thereafter.
+     */
+    private function resolveOrCreateTagId(string $tag): string
+    {
+        $listResponse = $this->youTrack->http()->get('tags', [
+            'fields' => 'id,name',
+        ]);
+
+        if ($listResponse->failed()) {
+            throw new RuntimeException(
+                "Failed to read tags while adding '{$tag}': {$listResponse->status()} - {$listResponse->body()}"
+            );
+        }
+
+        $existingId = collect($listResponse->json())
+            ->firstWhere('name', $tag)['id'] ?? null;
+
+        if ($existingId !== null) {
+            return (string) $existingId;
+        }
+
+        $createResponse = $this->youTrack->http()->post('tags', [
+            'name' => $tag,
+        ]);
+
+        if ($createResponse->failed()) {
+            throw new RuntimeException(
+                "Failed to create tag '{$tag}': {$createResponse->status()} - {$createResponse->body()}"
+            );
+        }
+
+        $createdId = $createResponse->json('id');
+
+        if ($createdId === null) {
+            throw new RuntimeException("Created tag '{$tag}' but YouTrack returned no id.");
+        }
+
+        return (string) $createdId;
     }
 
     /**
