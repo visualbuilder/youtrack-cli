@@ -6,7 +6,10 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 
 it('adds a tag via POST /issues/{id}/tags', function (): void {
-    Http::fake(['*/issues/NB-1/tags*' => Http::response(['id' => 't-1', 'name' => 'visual-regression'])]);
+    Http::fake([
+        '*/api/tags*' => Http::response([['id' => 't-1', 'name' => 'visual-regression']]),
+        '*/issues/NB-1/tags*' => Http::response(['id' => 't-1', 'name' => 'visual-regression']),
+    ]);
 
     expect(Artisan::call('youtrack:tag', [
         'issue_id' => 'NB-1',
@@ -24,7 +27,7 @@ it('adds a tag via POST /issues/{id}/tags', function (): void {
     Http::assertSent(static fn ($request): bool =>
         $request->method() === 'POST'
         && str_ends_with($request->url(), '/api/issues/NB-1/tags')
-        && $request->data()['name'] === 'visual-regression'
+        && $request->data()['id'] === 't-1'
     );
 });
 

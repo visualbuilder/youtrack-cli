@@ -141,7 +141,7 @@ it('BulkSearchFingerprints maps results back to the supplied fingerprints', func
         [
             'id' => '3-1',
             'idReadable' => 'NB-7',
-            'description' => 'panic [error-fp:abc]',
+            'description' => 'panic [error-fp:abcabcab]',
             'customFields' => [
                 ['name' => 'Status', 'value' => ['name' => 'Open']],
                 ['name' => 'Priority', 'value' => ['name' => 'P2']],
@@ -152,17 +152,17 @@ it('BulkSearchFingerprints maps results back to the supplied fingerprints', func
     ])]);
 
     $payload = decodeMcpResponse((new BulkSearchFingerprints)->handle(new McpRequest([
-        'fingerprints' => ['abc', 'def'],
+        'fingerprints' => ['abcabcab', 'defdefde'],
         'project' => 'NB',
     ])));
 
     expect($payload)->toMatchArray(['count' => 1, 'project' => 'NB'])
-        ->and($payload['results']['abc'])->toMatchArray([
+        ->and($payload['results']['abcabcab'])->toMatchArray([
             'issue_id' => 'NB-7',
             'state' => 'Open',
             'error_count' => 12,
         ])
-        ->and($payload['results']['def'])->toBeNull();
+        ->and($payload['results']['defdefde'])->toBeNull();
 });
 
 it('BulkSearchFingerprints rejects non-array fingerprints input', function (): void {
@@ -371,7 +371,10 @@ it('Reopen clears Resolution and resets the Status', function (): void {
 });
 
 it('Tag adds a tag via POST when remove is not set', function (): void {
-    Http::fake(['*/issues/NB-1/tags*' => Http::response(['id' => 't-1', 'name' => 'qa'])]);
+    Http::fake([
+        '*/api/tags*' => Http::response([['id' => 't-1', 'name' => 'qa']]),
+        '*/issues/NB-1/tags*' => Http::response(['id' => 't-1', 'name' => 'qa']),
+    ]);
 
     $payload = decodeMcpResponse((new Tag)->handle(new McpRequest([
         'issue_id' => 'NB-1',

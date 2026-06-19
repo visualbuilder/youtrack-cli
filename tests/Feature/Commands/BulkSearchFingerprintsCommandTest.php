@@ -10,7 +10,7 @@ it('returns matched issues keyed by fingerprint and counts non-null hits', funct
         [
             'id' => '3-1',
             'idReadable' => 'NB-1',
-            'description' => 'crash details [error-fp:aaa] more text',
+            'description' => 'crash details [error-fp:aaaaaaaa] more text',
             'customFields' => [
                 ['name' => 'Status', 'value' => ['name' => 'Open']],
                 ['name' => 'Priority', 'value' => ['name' => 'P2']],
@@ -21,7 +21,7 @@ it('returns matched issues keyed by fingerprint and counts non-null hits', funct
     ])]);
 
     expect(Artisan::call('youtrack:bulk-search-fingerprints', [
-        'fingerprints' => json_encode(['aaa', 'bbb']),
+        'fingerprints' => json_encode(['aaaaaaaa', 'bbbbbbbb']),
         '--project' => 'NB',
     ]))->toBe(0);
 
@@ -32,11 +32,11 @@ it('returns matched issues keyed by fingerprint and counts non-null hits', funct
         'project' => 'NB',
     ]);
 
-    expect($payload['results']['aaa'])->toMatchArray([
+    expect($payload['results']['aaaaaaaa'])->toMatchArray([
         'issue_id' => 'NB-1',
         'state' => 'Open',
         'error_count' => 17,
-    ])->and($payload['results']['bbb'])->toBeNull();
+    ])->and($payload['results']['bbbbbbbb'])->toBeNull();
 });
 
 it('rejects non-JSON-array input via the structured-error envelope', function (): void {
