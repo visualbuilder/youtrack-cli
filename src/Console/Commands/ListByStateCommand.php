@@ -22,13 +22,23 @@ abstract class ListByStateCommand extends BaseCommand
      */
     abstract protected function stateConfigKey(): string;
 
+    /**
+     * Resolve the state name to list. Defaults to the configured name for
+     * stateConfigKey(); ListStateCommand overrides this to accept any
+     * literal state name so board vocabulary changes never strand the CLI.
+     */
+    protected function resolveState(): string
+    {
+        return (string) config('youtrack.states.' . $this->stateConfigKey());
+    }
+
     protected function youtrackHandle(): int
     {
         [$page, $perPage] = $this->paginationOptions();
 
         $project = $this->option('project') ?: null;
         $extraQuery = trim((string) $this->option('query'));
-        $state = (string) config('youtrack.states.' . $this->stateConfigKey());
+        $state = $this->resolveState();
 
         $yql = 'Status: {' . $state . '}';
         if ($extraQuery !== '') {

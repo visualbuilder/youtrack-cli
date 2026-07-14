@@ -193,7 +193,20 @@ php artisan youtrack:list-blocked --project=NB
 php artisan youtrack:list-approved --project=NB
 php artisan youtrack:list-ready-for-staging --project=NB
 php artisan youtrack:list-ready-for-production --project=NB
+
+# Batch-promotion flow states (added 2026-07)
+php artisan youtrack:list-preview --project=NB
+php artisan youtrack:list-pending-merge --project=NB
+php artisan youtrack:list-staging-review --project=NB
+php artisan youtrack:list-live-errors --project=NB
+
+# Any state the board grows next — no config or release needed
+php artisan youtrack:list-state "Needs Triage" --project=NB
 ```
+
+Every named list command's state name is env-configurable (`YOUTRACK_PREVIEW_STATE`,
+`YOUTRACK_PENDING_MERGE_STATE`, `YOUTRACK_STAGING_REVIEW_STATE`,
+`YOUTRACK_LIVE_ERRORS_STATE`, ...) — see `config/youtrack.php` for the full map.
 
 ```json
 {

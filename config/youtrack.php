@@ -51,6 +51,12 @@ return [
         'ready_for_production' => env('YOUTRACK_READY_FOR_PRODUCTION_STATE', 'Ready for Production'),
         'blocked' => env('YOUTRACK_BLOCKED_STATE', 'Plan Review'),
         'done' => env('YOUTRACK_DONE_STATE', 'Done'),
+
+        // 2026-07 board additions — the batch-promotion flow.
+        'preview' => env('YOUTRACK_PREVIEW_STATE', 'Preview'),
+        'pending_merge' => env('YOUTRACK_PENDING_MERGE_STATE', 'Approved - pending manual merge'),
+        'staging_review' => env('YOUTRACK_STAGING_REVIEW_STATE', 'Staging Review'),
+        'live_errors' => env('YOUTRACK_LIVE_ERRORS_STATE', 'Live Errors'),
     ],
 
     /*

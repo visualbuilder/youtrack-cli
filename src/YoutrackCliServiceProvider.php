@@ -15,6 +15,11 @@ use Visualbuilder\YoutrackCli\Console\Commands\CreateIssueCommand;
 use Visualbuilder\YoutrackCli\Console\Commands\GetIssueCommand;
 use Visualbuilder\YoutrackCli\Console\Commands\LinkCommand;
 use Visualbuilder\YoutrackCli\Console\Commands\ListApprovedCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\ListLiveErrorsCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\ListPendingMergeCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\ListPreviewCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\ListStagingReviewCommand;
+use Visualbuilder\YoutrackCli\Console\Commands\ListStateCommand;
 use Visualbuilder\YoutrackCli\Console\Commands\ListBlockedCommand;
 use Visualbuilder\YoutrackCli\Console\Commands\ListReadyCommand;
 use Visualbuilder\YoutrackCli\Console\Commands\ListReadyForProductionCommand;
@@ -46,9 +51,14 @@ class YoutrackCliServiceProvider extends PackageServiceProvider
                 LinkCommand::class,
                 ListApprovedCommand::class,
                 ListBlockedCommand::class,
+                ListLiveErrorsCommand::class,
+                ListPendingMergeCommand::class,
+                ListPreviewCommand::class,
                 ListReadyCommand::class,
                 ListReadyForProductionCommand::class,
                 ListReadyForStagingCommand::class,
+                ListStagingReviewCommand::class,
+                ListStateCommand::class,
                 QueryCommand::class,
                 ReopenCommand::class,
                 ResolveCommand::class,
